@@ -1,0 +1,215 @@
+# xbrl-report
+
+Read and write EBA-style regulatory XBRL reports in both serializations, xBRL-CSV
+report packages and XBRL 2.1 XML instances, through one neutral fact model.
+The package uses only the standard library and needs Python 3.11 or newer.
+
+```python
+from xbrlreport import read_report
+
+report = read_report("report.zip")  # or a directory, report.json, .xbrl, or bytes
+print(report.entity_id, report.reference_date, len(report.facts))
+for fact in report.facts_for_template("C_01.00"):
+    print(fact.datapoint, fact.keys, fact.value)
+```
+
+## Model
+
+`xbrlreport.model` (re-exported from `xbrlreport`) defines two frozen, slotted
+dataclasses:
+
+- `Fact`: `value` (lexical value as written, `None` when nil), `concept`
+  (prefixed qname), `datapoint` (xBRL-CSV datapoint code), `template`
+  (xBRL-CSV table template id, `None` for XML), `dimensions` (explicit dimension
+  qname to member qname), `typed_dimensions` (typed dimension qname to the typed
+  value text), `keys` (xBRL-CSV non-fact column name to cell value, in header
+  order), `unit` (`iso4217:EUR`, `xbrli:pure`, `num/denom` for divide units,
+  `a*b` for products), `decimals` (`None` means INF or unspecified) and
+  `location` (`reports/c_01.00.csv:3` with the 1-based physical line, or
+  `instance.xbrl#f12` with the fact id, `#factN` for the Nth fact without id).
+- `Report`: `format`, `entry_point`, `entity_scheme`, `entity_id`,
+  `reference_date`, `base_currency`, `parameters`, `decimals_parameters`,
+  `filing_indicators`, `facts`, `namespaces` and `warnings`.
+
+`Report.facts_for_template(code)` compares template codes case-insensitively,
+so filing-indicator codes such as `C_01.00` select facts from `c_01.00.csv`.
+`local_name(qname)` returns the local part of a prefixed or Clark qname.
+
+Qnames always use prefixes declared in `Report.namespaces`. XML keeps the
+instance's own prefixes; a namespace declared again deeper in the document
+under another prefix is rendered with the first prefix bound to it.
+
+## Reading
+
+```python
+read_report(source, *, name=None, metadata_resolver=None,
+            taxonomy_packages=(), limits=Limits()) -> Report
+read_xbrl_csv(source, *, name=None, metadata_resolver=None,
+              taxonomy_packages=(), limits=Limits()) -> Report
+read_xbrl_xml(source, *, name=None, limits=Limits()) -> Report
+detect_format(source) -> "xbrl-csv" | "xbrl-xml"
+```
+
+`read_report` treats ZIP input (bytes or a path), a directory and a `.json`
+path as xBRL-CSV and everything else as XBRL-XML. Every failure raises
+`ReportError` (a `ValueError`) naming the file and, where known, the line.
+
+### xBRL-CSV
+
+- A ZIP or directory with exactly one `reports/*.json` report (normally
+  `reports/report.json`), optionally below one top-level folder, plus an
+  optional `META-INF/reportPackage.json` whose `documentType` must be
+  `https://xbrl.org/report-package/2023` or `.../2023/xbrl-csv`. A directory
+  may also hold `report.json` directly.
+- `documentInfo.documentType` must be `https://xbrl.org/2021/xbrl-csv`; the
+  2019-2021 PWD/CR/PR draft URIs are accepted with a warning. Duplicate JSON
+  keys are rejected.
+- `parameters.csv` (or the metadata's `parameterURL`) must have the header
+  `name,value`. `entityID` such as `lei:5299...` becomes `entity_id`; its
+  prefix is looked up in `namespaces` for `entity_scheme`, else kept as the
+  scheme. `refPeriod` must be a `YYYY-MM-DD` date. Parameters named
+  `decimals*` populate `decimals_parameters` (`#none` and `INF` map to `None`).
+  Inline JSON `parameters` are merged first; the CSV file overrides them.
+- `FilingIndicators.csv` must have the header `templateID,reported`, with
+  `reported` one of `true`, `false`, `1`, `0`.
+- Every other `*.csv` under the reports folder is a table. Its template id is
+  the file stem unless the metadata `tables` maps the file URL to a template.
+
+**EBA convention (no metadata).** Tables need `datapoint` and `factValue`
+columns; every other column is a key column kept in `Fact.keys`. Each row with
+a non-empty `factValue` is one fact. `#nil` gives a nil fact, `#empty` and
+`#none` are skipped, `##` escapes a leading `#`, and other `#` values are kept
+as written; each case adds a warning. `Fact.decimals` stays `None`; consumers
+pick the `decimals_parameters` entry for the fact's data type. Exact duplicate
+rows are reported once; conflicting duplicates (same template, datapoint and
+keys, different value) are all kept. Repeated findings are aggregated into one
+warning with a count and the first location.
+
+**Resolved metadata.** `report.json` and its `extends` chain are followed
+recursively (cycle-safe, diamond-safe, depth-limited), merging `namespaces`,
+`tableTemplates`, `tables`, `parameters`, `dimensions`, `decimals` and
+`parameterURL`, with the extending document taking precedence. Relative URLs
+resolve inside the package or against the extending document's URL. Absolute
+URLs are resolved by `metadata_resolver(url)` first and then through the
+`META-INF/catalog.xml` `rewriteURI`/`rewriteSystem` prefixes of the given
+taxonomy package ZIPs. Nothing is fetched over the network. Table `url`s and
+`parameterURL` resolve against the report's own JSON.
+
+For a table whose template is resolved, the supported xBRL-CSV subset is:
+template `columns`; fact columns (with `dimensions` or `propertiesFrom`);
+property-group columns (`propertyGroups`, such as EBA's `datapoint` column keyed
+by `dp...`); other columns as key columns; report, template, column and
+property-group `dimensions` and `decimals`, in increasing precedence;
+`$column` and `$parameter` references (row cell, then table parameters, then
+report parameters), `$$` escapes and `#none`; core dimensions `concept`,
+`unit`, `period`, `entity` and `language`; and taxonomy-defined dimensions. A
+taxonomy-defined dimension value that is a qname with a declared prefix is an
+explicit member; any other value is a typed value. `Fact.datapoint` is the
+property-group key and `Fact.keys` keeps the key columns. A table whose
+template cannot be resolved falls back to the EBA convention, and unresolved
+`extends` produce one warning.
+
+### XBRL-XML
+
+- The prolog is scanned before parsing and any DOCTYPE (and with it any ENTITY
+  declaration) is rejected; external entities are never resolved. Parsing
+  streams with `iterparse` and clears each top-level element once processed.
+- `link:schemaRef` gives `entry_point`. Contexts provide the entity identifier
+  and scheme, the reference date (instant, or the end date of a duration) and
+  `xbrldi:explicitMember`/`xbrldi:typedMember` from segment or scenario. A typed
+  member's value is the stripped text of its single child element; the child
+  element name is not kept.
+- Units with one or more measures, or a divide, become strings. Facts are
+  top-level elements outside the `xbrli`, `link` and `find` namespaces with a
+  `contextRef`; `xsi:nil="true"` gives `value=None`; `decimals="INF"` gives
+  `None`. `precision` is ignored, and tuples and elements without `contextRef`
+  are skipped, each with a warning.
+- `find:fIndicators/find:filingIndicator` provide filing indicators;
+  `find:filed` defaults to true.
+- The report entity and reference date are the most common across facts, and
+  `base_currency` is the most common single-measure `iso4217` unit. More than
+  one entity or period adds a warning, because EBA requires one.
+
+### Limits
+
+`Limits(max_zip_entries=10_000, max_total_size=2 GiB, max_file_size=512 MiB,
+max_facts=20_000_000, max_extends_depth=32)`. Report packages are also rejected
+for absolute or `..` entry names, duplicate entries and encrypted entries, and
+package directories for links that leave the directory. The file-size limit
+also applies to XML instances and to files read from taxonomy packages. CSV
+rows are streamed with the `csv` module (`utf-8-sig`), including from ZIPs.
+
+## Writing
+
+```python
+write_xbrl_csv(report, target, *, root=None) -> None
+write_xbrl_xml(report, target, *, typed_domains=None) -> None
+default_package_root(report) -> str
+```
+
+`write_xbrl_csv` writes a ZIP report package in EBA convention:
+`<root>/META-INF/reportPackage.json`, `<root>/reports/report.json` (extending
+`entry_point` and declaring `namespaces`), `parameters.csv` (`entityID`,
+`refPeriod`, `baseCurrency`, `decimals*`, then any other parameter),
+`FilingIndicators.csv` and one `<template>.csv` per template with header
+`datapoint,factValue,<key columns in first-seen order>`. Nil values are
+written as `#nil`, empty strings as `#empty` and a leading `#` as `##`. The root
+defaults to `<entity id>_<reference date>`. Output is deterministic (sorted
+templates, source fact order, fixed ZIP timestamps). Facts without a template
+or datapoint raise `ReportError` before anything is written.
+
+`write_xbrl_xml` writes `schemaRef`, filing indicators, contexts deduplicated
+by dimensions (`c1`, `c2`, ..., entity plus an instant at `reference_date`,
+dimensions in the scenario), units (`u1`, ...) and facts. A fact with a unit
+is numeric and gets `decimals` (`INF` when unset) unless it is nil. Facts
+without a concept, undeclared prefixes and a missing entity or reference date
+raise `ReportError`. Because the reader does not keep typed-domain element
+names, typed dimensions need `typed_domains={"eba_dim:qINC": "eba_typ:qCC"}`.
+
+Reading a written report reproduces its facts in both formats; the tests
+cover these round trips.
+
+## CLI
+
+```
+xbrl-report inspect PATH [--json] [--taxonomy-package ZIP ...]
+xbrl-report convert IN OUT [--taxonomy-package ZIP ...]
+                           [--typed-domain DIMENSION=ELEMENT ...] [--root NAME]
+```
+
+`inspect` prints the format, entry point, entity, reference date, base
+currency, filing indicators (reported of total), the fact count per template
+and the warnings. `convert` chooses the output format from the suffix: `.zip`
+writes xBRL-CSV, `.xbrl` or `.xml` writes XBRL-XML. Errors print `error: ...`
+and exit with status 1.
+
+## Development
+
+```
+uv sync
+uv run pytest
+uv run ruff check
+uv run ruff format --check
+uv run ty check
+```
+
+## Known gaps
+
+- No taxonomy validation, schema lookups or calculation and formula checks.
+  Without a taxonomy, an explicit member and a typed value that looks like a
+  declared qname cannot be told apart in xBRL-CSV metadata.
+- xBRL-CSV: no `rowIdColumn`, `links`, footnotes, `@start`/`@end` period
+  semantics, per-fact `period`/`entity`/`language` values (they are ignored),
+  or multiple reports per package. Taxonomy packages must be ZIPs.
+- EBA-convention CSV facts carry no concept, dimensions, unit or decimals, so
+  they cannot be written as XML; XML facts carry no datapoint or template, so
+  they cannot be written as CSV. Converting between formats needs resolved
+  xBRL-CSV metadata.
+- Empty-string facts do not survive an xBRL-CSV round trip (`#empty` is
+  skipped when read), and `Fact.decimals`, concepts and dimensions are not
+  written to EBA-convention CSV.
+- XML: tuples, footnotes, `precision`, segment versus scenario placement,
+  forever periods and typed-domain element names are not kept. XML output puts
+  all dimensions in the scenario and uses one entity and instant. The XML
+  writer holds the instance text in memory before writing it.
+- Fact locations in XML use the fact id rather than a line number.
