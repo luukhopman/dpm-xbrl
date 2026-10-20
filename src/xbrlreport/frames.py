@@ -36,7 +36,8 @@ class ReportFrames:
     report: Report
     """The report with ``facts == ()``; use :attr:`tables` for the facts."""
     tables: Mapping[str, pl.DataFrame]
-    """Template ID to a frame with ``datapoint``, ``factValue`` and key columns."""
+    """Template ID to a frame with ``datapoint``, ``factValue`` (strings) and
+    key columns; ``datapoint`` and key columns are categorical."""
 
     @property
     def fact_count(self) -> int:
@@ -174,6 +175,13 @@ class _FrameReader(_CsvReportReader):
             self._warnings.count(
                 f"{display}: conflicting duplicate facts kept", display
             )
+        # Datapoints and key values repeat once per cell of a row; categorical
+        # columns store each distinct value once.
+        frame = frame.with_columns(
+            pl.col(column).cast(pl.Categorical)
+            for column in frame.columns
+            if column != "factValue"
+        )
         self._rows_read += frame.height
         if self._rows_read > self._limits.max_facts:
             raise ReportError(
