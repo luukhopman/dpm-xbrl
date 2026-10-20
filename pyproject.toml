@@ -1,0 +1,103 @@
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
+
+[project]
+name = "xbrl-report"
+version = "0.1.0"
+description = "Read and write EBA-style xBRL-CSV and XBRL-XML regulatory reports"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Luuk Hopman" }]
+keywords = ["EBA", "XBRL", "xBRL-CSV", "regulatory reporting", "report package"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Private :: Do Not Upload",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Financial",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[dependency-groups]
+test = ["pytest"]
+lint = ["ruff", "ty"]
+dev = [
+    { include-group = "test" },
+    { include-group = "lint" },
+]
+
+[project.scripts]
+xbrl-report = "xbrlreport.cli:main"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+preview = true
+select = [
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "D",    # pydocstyle
+    "DOC",  # pydoclint: docstring parameters, returns, and exceptions
+    "DTZ",  # flake8-datetimez
+    "E",    # pycodestyle errors
+    "ERA",  # eradicate: commented-out code
+    "F",    # Pyflakes
+    "G",    # flake8-logging-format
+    "I",    # isort
+    "ICN",  # flake8-import-conventions
+    "LOG",  # flake8-logging
+    "PIE",  # flake8-pie
+    "PTH",  # flake8-use-pathlib
+    "RET",  # flake8-return
+    "RSE",  # flake8-raise
+    "RUF",  # Ruff-specific rules
+    "S",    # flake8-bandit security checks
+    "SIM",  # flake8-simplify
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+    "YTT",  # flake8-2020: obsolete Python-version checks
+]
+ignore = [
+    "incorrect-blank-line-before-class", # incompatible with D211
+    "multi-line-summary-second-line", # incompatible with D212
+    "docstring-extraneous-exception", # propagated exceptions are part of the public contract
+    "assert", # tests and internal invariants intentionally use assert
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests need no docstrings; fixture XML and JSON lines stay readable unwrapped.
+"tests/*" = ["D", "DOC", "line-too-long"]
+# The XML reader rejects DOCTYPE/ENTITY declarations before parsing and never
+# resolves external entities.
+"xbrlreport/xml_reader.py" = ["suspicious-xml-element-tree-usage", "suspicious-xml-etree-import"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Limits is a frozen dataclass, so a shared default instance is safe.
+extend-immutable-calls = ["xbrlreport.model.Limits"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ty.src]
+include = ["xbrlreport", "tests"]
+
+[tool.uv.build-backend]
+module-name = "xbrlreport"
+module-root = ""
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = ["--strict-config", "--strict-markers", "--import-mode=importlib"]

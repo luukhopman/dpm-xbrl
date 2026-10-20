@@ -1,0 +1,86 @@
+"""Small shared helpers for report adapters."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from typing import Any
+
+from .model import ReportError
+
+
+@dataclass(slots=True)
+class _Aggregate:
+    count: int
+    first_location: str
+
+
+class WarningLog:
+    """Collect warnings, aggregating repeated per-fact findings."""
+
+    def __init__(self) -> None:
+        """Create an empty warning log."""
+        self._messages: list[str] = []
+        self._aggregates: dict[str, _Aggregate] = {}
+
+    def add(self, message: str) -> None:
+        """Record one warning once."""
+        if message not in self._messages:
+            self._messages.append(message)
+
+    def count(self, message: str, location: str) -> None:
+        """Count one occurrence of a repeated finding."""
+        aggregate = self._aggregates.get(message)
+        if aggregate is None:
+            self._aggregates[message] = _Aggregate(1, location)
+        else:
+            aggregate.count += 1
+
+    def result(self) -> tuple[str, ...]:
+        """Return the collected warnings.
+
+        Returns:
+            tuple[str, ...]: Single warnings followed by aggregated findings.
+        """
+        aggregated = [
+            f"{message} ({aggregate.count} occurrence"
+            f"{'' if aggregate.count == 1 else 's'}, "
+            f"first at {aggregate.first_location})"
+            for message, aggregate in self._aggregates.items()
+        ]
+        return (*self._messages, *aggregated)
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key {key!r}")
+        result[key] = value
+    return result
+
+
+def load_json_object(data: bytes, label: str) -> dict[str, Any]:
+    """Parse one JSON object, rejecting duplicate keys.
+
+    Returns:
+        dict[str, Any]: Parsed object.
+
+    Raises:
+        ReportError: If the document is not a valid JSON object.
+    """
+    try:
+        value = json.loads(
+            data.decode("utf-8-sig"), object_pairs_hook=_reject_duplicate_keys
+        )
+    except UnicodeDecodeError as error:
+        raise ReportError(f"{label}: not valid UTF-8 ({error.reason})") from error
+    except json.JSONDecodeError as error:
+        raise ReportError(
+            f"{label}:{error.lineno}: invalid JSON ({error.msg})"
+        ) from error
+    except ValueError as error:
+        raise ReportError(f"{label}: invalid JSON ({error})") from error
+    if not isinstance(value, dict):
+        raise ReportError(f"{label}: expected a JSON object")
+    return value
