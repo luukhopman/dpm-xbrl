@@ -36,6 +36,15 @@ dev = [
 [project.scripts]
 xbrl-report = "xbrlreport.cli:main"
 
+[project.optional-dependencies]
+frames = [
+    "polars>=2.0,<3",
+]
+
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true
+
 [tool.ruff]
 target-version = "py311"
 line-length = 88
