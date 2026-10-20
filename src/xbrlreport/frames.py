@@ -165,16 +165,17 @@ class _FrameReader(_CsvReportReader):
         missing = frame.filter(pl.col("datapoint") == "").height
         if missing:
             self._warnings.count(f"{display}: facts without a datapoint", display)
-        before = frame.height
-        frame = frame.unique(maintain_order=True)
-        if frame.height < before:
-            self._warnings.count(f"{display}: duplicate facts ignored", display)
         identity = [column for column in frame.columns if column != "factValue"]
-        conflicts = frame.height - frame.unique(subset=identity).height
-        if conflicts:
-            self._warnings.count(
-                f"{display}: conflicting duplicate facts kept", display
-            )
+        # One hash pass settles the common case of no repeated cell and key.
+        if frame.select(identity).n_unique() < frame.height:
+            before = frame.height
+            frame = frame.unique(maintain_order=True)
+            if frame.height < before:
+                self._warnings.count(f"{display}: duplicate facts ignored", display)
+            if frame.select(identity).n_unique() < frame.height:
+                self._warnings.count(
+                    f"{display}: conflicting duplicate facts kept", display
+                )
         # Datapoints and key values repeat once per cell of a row; categorical
         # columns store each distinct value once.
         frame = frame.with_columns(
