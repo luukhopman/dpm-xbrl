@@ -78,7 +78,7 @@ ignore = [
 "tests/*" = ["D", "DOC", "line-too-long"]
 # The XML reader rejects DOCTYPE/ENTITY declarations before parsing and never
 # resolves external entities.
-"xbrlreport/xml_reader.py" = ["suspicious-xml-element-tree-usage", "suspicious-xml-etree-import"]
+"src/xbrlreport/xml_reader.py" = ["suspicious-xml-element-tree-usage", "suspicious-xml-etree-import"]
 
 [tool.ruff.lint.flake8-bugbear]
 # Limits is a frozen dataclass, so a shared default instance is safe.
@@ -91,11 +91,11 @@ convention = "google"
 docstring-code-format = true
 
 [tool.ty.src]
-include = ["xbrlreport", "tests"]
+include = ["src", "tests"]
 
 [tool.uv.build-backend]
 module-name = "xbrlreport"
-module-root = ""
+module-root = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
