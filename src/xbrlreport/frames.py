@@ -15,8 +15,10 @@ resolved xBRL-CSV metadata are not supported here; use :func:`read_xbrl_csv`.
 from __future__ import annotations
 
 import io
+import itertools
 import os
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -119,6 +121,14 @@ class _FrameReader(_CsvReportReader):
         if self._on_metadata is not None:
             self._on_metadata(header)
 
+    def _read_tables(self, metadata: Any) -> None:
+        # Decompressing the next table while polars parses this one overlaps
+        # the two (zlib releases the GIL); at most two tables are in memory.
+        csv_names = [name for name in self._package.names if name.endswith(".csv")]
+        with ThreadPoolExecutor(1, thread_name_prefix="xbrl-csv-read") as pool:
+            self._prefetch = _Prefetch(self._package.read, csv_names, pool)
+            super()._read_tables(metadata)
+
     def frames(self) -> dict[str, pl.DataFrame]:
         import polars as pl
 
@@ -138,9 +148,21 @@ class _FrameReader(_CsvReportReader):
         import polars as pl
 
         display = self._display(name)
-        data = self._package.read(name)
+        data = self._prefetch.read(name)
         try:
-            frame = pl.read_csv(io.BytesIO(data), infer_schema=False, encoding="utf8")
+            header = pl.read_csv(io.BytesIO(data), n_rows=0, infer_schema=False)
+            # Datapoints and key values repeat once per cell of a row; read as
+            # categoricals they are stored once and compared as integers.
+            frame = pl.read_csv(
+                io.BytesIO(data),
+                infer_schema=False,
+                encoding="utf8",
+                schema_overrides={
+                    column: pl.Categorical
+                    for column in header.columns
+                    if column != "factValue"
+                },
+            )
             # Empty CSV fields read as null; the reader treats them as "".
             frame = frame.with_columns(pl.all().fill_null(""))
         except (pl.exceptions.ComputeError, pl.exceptions.NoDataError) as error:
@@ -189,8 +211,14 @@ class _FrameReader(_CsvReportReader):
         if missing:
             self._warnings.count(f"{display}: facts without a datapoint", display)
         identity = [column for column in frame.columns if column != "factValue"]
-        # One hash pass settles the common case of no repeated cell and key.
-        if frame.select(identity).n_unique() < frame.height:
+        # One hash of the identity's category codes settles the common case
+        # of no repeated cell and key; a collision only takes the exact path.
+        hashed = frame.select(
+            pl.struct([pl.col(column).to_physical() for column in identity])
+            .hash()
+            .n_unique()
+        ).item()
+        if hashed < frame.height and frame.select(identity).n_unique() < frame.height:
             before = frame.height
             frame = frame.unique(maintain_order=True)
             if frame.height < before:
@@ -199,19 +227,35 @@ class _FrameReader(_CsvReportReader):
                 self._warnings.count(
                     f"{display}: conflicting duplicate facts kept", display
                 )
-        # Datapoints and key values repeat once per cell of a row; categorical
-        # columns store each distinct value once.
-        frame = frame.with_columns(
-            pl.col(column).cast(pl.Categorical)
-            for column in frame.columns
-            if column != "factValue"
-        )
         self._rows_read += frame.height
         if self._rows_read > self._limits.max_facts:
             raise ReportError(
                 f"{display}: report exceeds the limit of {self._limits.max_facts} facts"
             )
         self._frames.setdefault(template_id, []).append(frame)
+
+
+class _Prefetch:
+    """Read package files in order, decompressing the next one ahead."""
+
+    def __init__(
+        self,
+        read: Callable[[str], bytes],
+        names: Sequence[str],
+        pool: ThreadPoolExecutor,
+    ) -> None:
+        self._read = read
+        self._next = dict(itertools.pairwise(names))
+        self._pool = pool
+        self._pending: dict[str, Future[bytes]] = {}
+
+    def read(self, name: str) -> bytes:
+        pending = self._pending.pop(name, None)
+        data = pending.result() if pending is not None else self._read(name)
+        following = self._next.get(name)
+        if following is not None and following not in self._pending:
+            self._pending[following] = self._pool.submit(self._read, following)
+        return data
 
 
 __all__ = ["ReportFrames", "read_xbrl_csv_frames"]

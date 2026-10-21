@@ -71,3 +71,46 @@ def test_metadata_arrives_before_tables_and_can_abort(tmp_path) -> None:
 
     with pytest.raises(Stop):
         read_xbrl_csv_frames(path, on_metadata=stop)
+
+
+def _replace_entry(path, suffix: str, text: str) -> None:
+    import zipfile
+
+    with zipfile.ZipFile(path) as source:
+        entries = {info.filename: source.read(info) for info in source.infolist()}
+    with zipfile.ZipFile(path, "w") as target:
+        for name, data in entries.items():
+            target.writestr(name, text.encode() if name.endswith(suffix) else data)
+
+
+def test_duplicates_and_special_values_match_the_object_reader(tmp_path) -> None:
+    path = tmp_path / "report.zip"
+    write_xbrl_csv(report(), path)
+    _replace_entry(
+        path,
+        "c_27.00.csv",
+        "datapoint,factValue,qINC,qNCO\n"
+        "dp2,1,A,x\n"
+        "dp2,1,A,x\n"  # exact repeat: ignored
+        "dp2,2,B,x\n"
+        "dp2,3,B,x\n"  # same cell and key, other value: kept, reported
+        "dp2,#nil,C,x\n"
+        "dp2,#empty,D,x\n"
+        "dp2,##E,E,x\n",
+    )
+    objects = read_xbrl_csv(path)
+    frames = read_xbrl_csv_frames(path)
+
+    table = frames.tables["c_27.00"]
+    rows = sorted(
+        (row["qINC"], row["factValue"]) for row in table.iter_rows(named=True)
+    )
+    assert rows == [("A", "1"), ("B", "2"), ("B", "3"), ("C", None), ("E", "#E")]
+    assert rows == sorted(
+        (fact.keys["qINC"], fact.value)
+        for fact in objects.facts
+        if fact.template == "c_27.00"
+    )
+    warnings = " | ".join(frames.report.warnings)
+    assert "duplicate facts ignored" in warnings
+    assert "conflicting duplicate facts kept" in warnings
