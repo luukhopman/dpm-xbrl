@@ -15,7 +15,7 @@ import posixpath
 import re
 import zipfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -248,9 +248,7 @@ class _CsvReportReader:
         reference_date = self._reference_date(parameter_lines, label)
         decimals_parameters = self._decimals_parameters(parameter_lines, label)
         filing_indicators = self._read_filing_indicators()
-        self._read_tables(metadata)
-
-        return Report(
+        header = Report(
             format="xbrl-csv",
             entry_point=entry_point,
             entity_scheme=entity_scheme,
@@ -260,10 +258,17 @@ class _CsvReportReader:
             parameters=dict(self._parameters),
             decimals_parameters=decimals_parameters,
             filing_indicators=filing_indicators,
-            facts=tuple(self._facts),
+            facts=(),
             namespaces=dict(metadata.namespaces),
-            warnings=self._warnings.result(),
         )
+        self._before_tables(header)
+        self._read_tables(metadata)
+        return replace(
+            header, facts=tuple(self._facts), warnings=self._warnings.result()
+        )
+
+    def _before_tables(self, header: Report) -> None:
+        """Called with the report's metadata before any table is read."""
 
     # Package and document checks -------------------------------------------
 

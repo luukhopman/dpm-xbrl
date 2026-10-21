@@ -49,3 +49,25 @@ def test_frames_match_the_object_reader(tmp_path) -> None:
     assert open_table.height == 500
     closed = frames.tables["c_01.00"].to_dicts()
     assert {"datapoint": "dp3", "factValue": None} in closed
+
+
+def test_metadata_arrives_before_tables_and_can_abort(tmp_path) -> None:
+    path = tmp_path / "report.zip"
+    write_xbrl_csv(report(), path)
+    seen: list[Report] = []
+    frames = read_xbrl_csv_frames(path, on_metadata=seen.append)
+    (header,) = seen
+    assert header.entry_point == "http://example/mod/corep_le.json"
+    assert header.reference_date == date(2026, 12, 31)
+    assert header.filing_indicators == {"C_01.00": True, "C_27.00": True}
+    assert header.facts == ()
+    assert frames.fact_count == 502
+
+    class Stop(Exception):
+        pass
+
+    def stop(_header: Report) -> None:
+        raise Stop
+
+    with pytest.raises(Stop):
+        read_xbrl_csv_frames(path, on_metadata=stop)

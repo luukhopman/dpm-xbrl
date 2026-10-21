@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import io
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -52,8 +52,20 @@ def read_xbrl_csv_frames(
     metadata_resolver: MetadataResolver | None = None,
     taxonomy_packages: Sequence[str | Path] = (),
     limits: Limits = Limits(),
+    on_metadata: Callable[[Report], None] | None = None,
 ) -> ReportFrames:
     """Read an xBRL-CSV report package into columnar table frames.
+
+    Args:
+        source: Package bytes, path, or directory.
+        name: Label used in messages.
+        metadata_resolver: Returns the bytes for an absolute ``extends`` URL.
+        taxonomy_packages: Taxonomy packages for offline metadata.
+        limits: Resource limits for untrusted input.
+        on_metadata: Called with the report (entry point, reference date,
+            parameters and filing indicators, no facts) before the tables
+            are read, so callers can start dependent work that overlaps the
+            table parsing. Exceptions it raises abort the read.
 
     Returns:
         ReportFrames: Report metadata and the table frames.
@@ -82,6 +94,7 @@ def read_xbrl_csv_frames(
                 resolver=metadata_resolver,
                 taxonomy=taxonomy,
                 limits=limits,
+                on_metadata=on_metadata,
             )
             report = reader.read()
             return ReportFrames(report, reader.frames())
@@ -91,10 +104,20 @@ def read_xbrl_csv_frames(
 
 
 class _FrameReader(_CsvReportReader):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *args: Any,
+        on_metadata: Callable[[Report], None] | None = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self._frames: dict[str, list[pl.DataFrame]] = {}
         self._rows_read = 0
+        self._on_metadata = on_metadata
+
+    def _before_tables(self, header: Report) -> None:
+        if self._on_metadata is not None:
+            self._on_metadata(header)
 
     def frames(self) -> dict[str, pl.DataFrame]:
         import polars as pl
