@@ -3,6 +3,8 @@
 Read and write EBA-style regulatory XBRL reports in both serializations, xBRL-CSV
 report packages and XBRL 2.1 XML instances, through one neutral fact model.
 The package uses only the standard library and needs Python 3.11 or newer.
+The optional `fast` extra adds `isal`, which inflates ZIP entries about twice
+as fast as zlib; the bytes read are the same either way.
 
 ```python
 from xbrlreport import read_report

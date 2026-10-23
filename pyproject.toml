@@ -40,6 +40,10 @@ xbrl-report = "xbrlreport.cli:main"
 frames = [
     "polars>=2.0,<3",
 ]
+# Inflates package ZIP entries about twice as fast as zlib.
+fast = [
+    "isal>=1.8,<2",
+]
 
 [[tool.uv.index]]
 url = "https://pypi.org/simple"

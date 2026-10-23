@@ -5,15 +5,31 @@ from __future__ import annotations
 import io
 import os
 import re
+import struct
 import zlib
 from pathlib import Path
 from types import TracebackType
-from typing import IO
-from zipfile import BadZipFile, ZipFile, ZipInfo
+from typing import IO, cast
+from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
 
 from .model import Limits, ReportError
 
+try:
+    # Intel ISA-L inflates about twice as fast as zlib (the "fast" extra).
+    from isal import isal_zlib as _fast_zlib
+
+    # isal's type stubs declare its error class as an instance.
+    _FAST_ZLIB_ERRORS: tuple[type[Exception], ...] = (
+        cast("type[Exception]", _fast_zlib.error),
+    )
+except ImportError:
+    _fast_zlib = None
+    _FAST_ZLIB_ERRORS = ()
+
 _DRIVE = re.compile(r"^[A-Za-z]:")
+# A ZIP local file header: signature, then the name and extra field lengths.
+_LOCAL_HEADER = struct.Struct("<4s22xHH")
+_LOCAL_SIGNATURE = b"PK\x03\x04"
 # What zipfile raises for an entry whose compressed data is damaged.
 DAMAGED_ENTRY_ERRORS = (BadZipFile, EOFError, zlib.error)
 
@@ -47,6 +63,7 @@ class Package:
         names: tuple[str, ...],
         *,
         archive: ZipFile | None = None,
+        source: bytes | Path | None = None,
         root: Path | None = None,
         limits: Limits,
     ) -> None:
@@ -55,6 +72,7 @@ class Package:
         self.names = names
         self._name_set = frozenset(names)
         self._archive = archive
+        self._source = source
         self._root = root
         self._limits = limits
 
@@ -111,11 +129,55 @@ class Package:
         Raises:
             DamagedEntryError: If the file's compressed data is damaged.
         """
+        if self._archive is not None and name in self._name_set:
+            data = self._inflate(self._archive.getinfo(name))
+            if data is not None:
+                return data
         with self.open(name) as stream:
             try:
                 return stream.read()
             except DAMAGED_ENTRY_ERRORS as error:
                 raise DamagedEntryError(self.label, name, error) from error
+
+    def _inflate(self, info: ZipInfo) -> bytes | None:
+        """Inflate a deflated entry with ISA-L, or return ``None`` for zipfile.
+
+        Anything unexpected (another compression method, an unusual local
+        header, a size or CRC that does not match the central directory) is
+        left to zipfile, which reads the entry the standard way and reports
+        its errors.
+
+        Returns:
+            bytes | None: The entry's content, or ``None`` to read it with zipfile.
+        """
+        if _fast_zlib is None or self._source is None:
+            return None
+        if info.compress_type != ZIP_DEFLATED:
+            return None
+        with (
+            io.BytesIO(self._source)
+            if isinstance(self._source, bytes)
+            else self._source.open("rb")
+        ) as stream:
+            stream.seek(info.header_offset)
+            header = stream.read(_LOCAL_HEADER.size)
+            if len(header) != _LOCAL_HEADER.size:
+                return None
+            signature, name_length, extra_length = _LOCAL_HEADER.unpack(header)
+            if signature != _LOCAL_SIGNATURE:
+                return None
+            stream.seek(name_length + extra_length, os.SEEK_CUR)
+            compressed = stream.read(info.compress_size)
+        try:
+            # Never produce more than the declared size, whatever the data holds.
+            data = _fast_zlib.decompressobj(-15).decompress(
+                compressed, info.file_size + 1
+            )
+        except _FAST_ZLIB_ERRORS:
+            return None
+        if len(data) != info.file_size or _fast_zlib.crc32(data) != info.CRC:
+            return None
+        return data
 
 
 def open_zip_package(source: bytes | Path, *, label: str, limits: Limits) -> Package:
@@ -136,7 +198,7 @@ def open_zip_package(source: bytes | Path, *, label: str, limits: Limits) -> Pac
     except BaseException:
         archive.close()
         raise
-    return Package(label, names, archive=archive, limits=limits)
+    return Package(label, names, archive=archive, source=source, limits=limits)
 
 
 def _validate_entries(
