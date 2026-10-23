@@ -27,7 +27,6 @@ the file location.
 from __future__ import annotations
 
 import io
-import itertools
 import os
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -37,11 +36,15 @@ from typing import TYPE_CHECKING, Any
 
 from ._taxonomy import TaxonomyPackages
 from .csv_reader import MetadataResolver, _CsvReportReader, _open_package
-from .filing import EMPTY_VALUE, NIL_VALUE, SPECIAL_VALUE
+from .filing import EMPTY_VALUE, NIL_VALUE, SPECIAL_VALUE, Rule
 from .model import Limits, Report, ReportError
 
 if TYPE_CHECKING:
     import polars as pl
+
+# Table files inflated and parsed at once; each parse also uses polars' own
+# threads, so a few files at a time fill the cores between their steps.
+_READ_WORKERS = max(1, min(3, os.cpu_count() or 1))
 
 
 @dataclass(frozen=True)
@@ -140,26 +143,41 @@ class _FrameReader(_CsvReportReader):
         self._rows_in_files: dict[str, int] = {}
         self._dropped: dict[str, list[int]] = {}
         self._on_metadata = on_metadata
+        self._pool: ThreadPoolExecutor | None = None
+        self._scheduled: list[tuple[str, Future[_Parsed]]] = []
 
     def _before_tables(self, header: Report) -> None:
         if self._on_metadata is not None:
             self._on_metadata(header)
 
     def _read_tables(self, metadata: Any) -> None:
-        # Decompressing the next table while polars parses this one overlaps
-        # the two (zlib releases the GIL); at most two tables are in memory.
-        csv_names = [name for name in self._package.names if name.endswith(".csv")]
-        with ThreadPoolExecutor(1, thread_name_prefix="xbrl-csv-read") as pool:
-            self._prefetch = _Prefetch(self._package.read, csv_names, pool)
-            super()._read_tables(metadata)
+        # Files inflate and parse concurrently (zlib and polars release the
+        # GIL); their findings, warnings and frames are then taken in package
+        # order, so the result is the same as reading one file at a time.
+        with ThreadPoolExecutor(
+            _READ_WORKERS, thread_name_prefix="xbrl-csv-read"
+        ) as pool:
+            self._pool = pool
+            try:
+                super()._read_tables(metadata)
+                for template_id, parsed in self._scheduled:
+                    self._take(template_id, parsed.result())
+            finally:
+                for _, parsed in self._scheduled:
+                    parsed.cancel()
+                self._scheduled = []
+                self._pool = None
 
     def frames(self) -> dict[str, pl.DataFrame]:
+        return {template: self._frame(template) for template in self._frames}
+
+    def _frame(self, template_id: str) -> pl.DataFrame:
         import polars as pl
 
-        return {
-            template: parts[0] if len(parts) == 1 else pl.concat(parts, how="diagonal")
-            for template, parts in self._frames.items()
-        }
+        parts = self._frames[template_id]
+        if len(parts) > 1:
+            parts[:] = [pl.concat(parts, how="diagonal")]
+        return parts[0]
 
     def dropped_rows(self) -> dict[str, tuple[int, ...]]:
         return {template: tuple(rows) for template, rows in self._dropped.items()}
@@ -172,110 +190,159 @@ class _FrameReader(_CsvReportReader):
         )
 
     def _read_convention_table(self, name: str, template_id: str) -> None:
+        assert self._pool is not None
+        display = self._display(name)
+        read = self._package.read
+        self._scheduled.append(
+            (template_id, self._pool.submit(lambda: _parse(read(name), display)))
+        )
+
+    def _take(self, template_id: str, parsed: _Parsed) -> None:
+        """Record one parsed file's findings, removed rows and frame.
+
+        Raises:
+            ReportError: If the report now exceeds the fact limit.
+        """
         import polars as pl
 
-        display = self._display(name)
-        data = self._prefetch.read(name)
-        try:
-            header = pl.read_csv(io.BytesIO(data), n_rows=0, infer_schema=False)
-            # Datapoints and key values repeat once per cell of a row; read as
-            # categoricals they are stored once and compared as integers.
-            frame = pl.read_csv(
-                io.BytesIO(data),
-                infer_schema=False,
-                encoding="utf8",
-                schema_overrides={
-                    column: pl.Categorical
-                    for column in header.columns
-                    if column != "factValue"
-                },
-            )
-            # Empty CSV fields read as null; the reader treats them as "".
-            frame = frame.with_columns(pl.all().fill_null(""))
-        except (pl.exceptions.ComputeError, pl.exceptions.NoDataError) as error:
-            if not data.strip():
-                raise ReportError(
-                    f"{display}:1: the first row must be a header"
-                ) from error
-            raise ReportError(f"{display}: {error}") from error
-        header = frame.columns
-        if "datapoint" not in header or "factValue" not in header:
-            raise ReportError(
-                f"{display}:1: table header must contain 'datapoint' and "
-                f"'factValue' columns, found {','.join(header)!r}"
-            )
-        value = pl.col("factValue")
-        special = value.str.starts_with("#") & ~value.str.starts_with("##")
-        # Special values are located before any row is removed, so their row
-        # numbers are the file's.
-        if frame.select(special.any()).item():
-            for finding, mask in (
-                (NIL_VALUE, value == "#nil"),
-                (EMPTY_VALUE, value == "#empty"),
-                (SPECIAL_VALUE, special & ~value.is_in(["#nil", "#empty"])),
-            ):
-                rows = frame.select(pl.arg_where(mask)).to_series()
-                # Data rows start on line 2, after the header.
-                for row in rows.head(5):
-                    self._filing.add(*finding, f"{display}:{row + 2}")
-                self._filing.add(*finding, count=rows.len() - min(rows.len(), 5))
-        read = frame.height
-        has_fact = (value != "") & ~value.is_in(["#empty", "#none"])
-        kept = frame.filter(has_fact)
-        # Locating removed rows costs a second pass, so only when there are any.
-        no_fact = (
-            frame.select(pl.arg_where(~has_fact)).to_series().cast(pl.Int64)
-            if kept.height < read
-            else None
-        )
-        frame = kept.with_columns(
-            pl.when(value == "#nil")
-            .then(None)
-            .when(value.str.starts_with("##"))
-            .then(value.str.slice(1))
-            .otherwise(value)
-            .alias("factValue")
-        )
-        missing = frame.filter(pl.col("datapoint") == "").height
-        if missing:
-            self._warnings.count(f"{display}: facts without a datapoint", display)
-        identity = [column for column in frame.columns if column != "factValue"]
-        # One hash of the identity's category codes settles the common case
-        # of no repeated cell and key; a collision only takes the exact path.
-        hashed = frame.select(
-            pl.struct([pl.col(column).to_physical() for column in identity])
-            .hash()
-            .n_unique()
-        ).item()
-        repeats = None
-        if hashed < frame.height and frame.select(identity).n_unique() < frame.height:
-            first = frame.select(pl.struct(pl.all()).is_first_distinct()).to_series()
-            if not first.all():
-                repeats = _rows_before(
-                    frame.select(pl.arg_where(~first)).to_series(), no_fact
-                )
-                frame = frame.filter(first)
-                self._warnings.count(
-                    f"{display}: duplicate facts ignored",
-                    f"{display}:{repeats[0] + 2}",
-                )
-            if frame.select(identity).n_unique() < frame.height:
-                self._warnings.count(
-                    f"{display}: conflicting duplicate facts kept", display
-                )
+        for finding, location, count in parsed.findings:
+            self._filing.add(*finding, location, count=count)
+        for message, location in parsed.warnings:
+            self._warnings.count(message, location)
         offset = self._rows_in_files.get(template_id, 0)
-        self._rows_in_files[template_id] = offset + read
-        removed = [rows for rows in (no_fact, repeats) if rows is not None]
-        if removed:
+        self._rows_in_files[template_id] = offset + parsed.read
+        if parsed.removed:
             self._dropped.setdefault(template_id, []).extend(
-                (pl.concat(removed).sort() + offset).to_list()
+                (pl.concat(parsed.removed).sort() + offset).to_list()
             )
+        frame = parsed.frame
         self._rows_read += frame.height
         if self._rows_read > self._limits.max_facts:
             raise ReportError(
-                f"{display}: report exceeds the limit of {self._limits.max_facts} facts"
+                f"{parsed.display}: report exceeds the limit of "
+                f"{self._limits.max_facts} facts"
             )
         self._frames.setdefault(template_id, []).append(frame)
+
+
+@dataclass
+class _Parsed:
+    """One table file read into a frame, with what reading it found."""
+
+    display: str
+    frame: pl.DataFrame
+    read: int
+    """Data rows in the file, before any was removed."""
+    removed: list[pl.Series]
+    """File-relative indices of the removed rows (no fact, repeats)."""
+    findings: list[tuple[Rule, str | None, int]]
+    warnings: list[tuple[str, str]]
+
+
+def _parse(data: bytes, display: str) -> _Parsed:
+    """Read one EBA-convention table file (datapoint, factValue and keys).
+
+    Returns:
+        _Parsed: The frame and the findings to record, in reading order.
+
+    Raises:
+        ReportError: If the file has no usable header.
+    """
+    import polars as pl
+
+    findings: list[tuple[Rule, str | None, int]] = []
+    warnings: list[tuple[str, str]] = []
+    try:
+        header = pl.read_csv(io.BytesIO(data), n_rows=0, infer_schema=False)
+        # Datapoints and key values repeat once per cell of a row; read as
+        # categoricals they are stored once and compared as integers.
+        frame = pl.read_csv(
+            io.BytesIO(data),
+            infer_schema=False,
+            encoding="utf8",
+            schema_overrides={
+                column: pl.Categorical
+                for column in header.columns
+                if column != "factValue"
+            },
+        )
+        # Empty CSV fields read as null; the reader treats them as "".
+        frame = frame.with_columns(pl.all().fill_null(""))
+    except (pl.exceptions.ComputeError, pl.exceptions.NoDataError) as error:
+        if not data.strip():
+            raise ReportError(f"{display}:1: the first row must be a header") from error
+        raise ReportError(f"{display}: {error}") from error
+    del data
+    header = frame.columns
+    if "datapoint" not in header or "factValue" not in header:
+        raise ReportError(
+            f"{display}:1: table header must contain 'datapoint' and "
+            f"'factValue' columns, found {','.join(header)!r}"
+        )
+    value = pl.col("factValue")
+    special = value.str.starts_with("#") & ~value.str.starts_with("##")
+    # Special values are located before any row is removed, so their row
+    # numbers are the file's.
+    if frame.select(special.any()).item():
+        for finding, mask in (
+            (NIL_VALUE, value == "#nil"),
+            (EMPTY_VALUE, value == "#empty"),
+            (SPECIAL_VALUE, special & ~value.is_in(["#nil", "#empty"])),
+        ):
+            rows = frame.select(pl.arg_where(mask)).to_series()
+            # Data rows start on line 2, after the header.
+            for row in rows.head(5):
+                findings.append((finding, f"{display}:{row + 2}", 1))
+            findings.append((finding, None, rows.len() - min(rows.len(), 5)))
+    read = frame.height
+    has_fact = (value != "") & ~value.is_in(["#empty", "#none"])
+    kept = frame.filter(has_fact)
+    # Locating removed rows costs a second pass, so only when there are any.
+    no_fact = (
+        frame.select(pl.arg_where(~has_fact)).to_series().cast(pl.Int64)
+        if kept.height < read
+        else None
+    )
+    frame = kept.with_columns(
+        pl.when(value == "#nil")
+        .then(None)
+        .when(value.str.starts_with("##"))
+        .then(value.str.slice(1))
+        .otherwise(value)
+        .alias("factValue")
+    )
+    missing = frame.filter(pl.col("datapoint") == "").height
+    if missing:
+        warnings.append((f"{display}: facts without a datapoint", display))
+    identity = [column for column in frame.columns if column != "factValue"]
+    # One hash of the identity's category codes settles the common case
+    # of no repeated cell and key; a collision only takes the exact path.
+    hashed = frame.select(
+        pl.struct([pl.col(column).to_physical() for column in identity])
+        .hash()
+        .n_unique()
+    ).item()
+    repeats = None
+    if hashed < frame.height and frame.select(identity).n_unique() < frame.height:
+        first = frame.select(pl.struct(pl.all()).is_first_distinct()).to_series()
+        if not first.all():
+            repeats = _rows_before(
+                frame.select(pl.arg_where(~first)).to_series(), no_fact
+            )
+            frame = frame.filter(first)
+            warnings.append(
+                (f"{display}: duplicate facts ignored", f"{display}:{repeats[0] + 2}")
+            )
+        if frame.select(identity).n_unique() < frame.height:
+            warnings.append((f"{display}: conflicting duplicate facts kept", display))
+    return _Parsed(
+        display,
+        frame,
+        read,
+        [rows for rows in (no_fact, repeats) if rows is not None],
+        findings,
+        warnings,
+    )
 
 
 def _rows_before(rows: pl.Series, removed: pl.Series | None) -> pl.Series:
@@ -297,29 +364,6 @@ def _rows_before(rows: pl.Series, removed: pl.Series | None) -> pl.Series:
     # row at position p follows each removed row with removed[i] - i <= p.
     kept_before = removed - pl.int_range(removed.len(), eager=True)
     return rows + kept_before.search_sorted(rows, side="right").cast(pl.Int64)
-
-
-class _Prefetch:
-    """Read package files in order, decompressing the next one ahead."""
-
-    def __init__(
-        self,
-        read: Callable[[str], bytes],
-        names: Sequence[str],
-        pool: ThreadPoolExecutor,
-    ) -> None:
-        self._read = read
-        self._next = dict(itertools.pairwise(names))
-        self._pool = pool
-        self._pending: dict[str, Future[bytes]] = {}
-
-    def read(self, name: str) -> bytes:
-        pending = self._pending.pop(name, None)
-        data = pending.result() if pending is not None else self._read(name)
-        following = self._next.get(name)
-        if following is not None and following not in self._pending:
-            self._pending[following] = self._pool.submit(self._read, following)
-        return data
 
 
 __all__ = ["ReportFrames", "read_xbrl_csv_frames"]

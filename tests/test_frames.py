@@ -5,7 +5,7 @@ import pytest
 pytest.importorskip("polars")
 
 from tests.support import csv_text, open_files, report_json, write_zip
-from xbrlreport import Fact, Report, read_xbrl_csv, write_xbrl_csv
+from xbrlreport import Fact, Report, ReportError, read_xbrl_csv, write_xbrl_csv
 from xbrlreport.frames import read_xbrl_csv_frames
 
 
@@ -181,3 +181,35 @@ def test_dropped_rows_continue_across_the_files_of_a_template(tmp_path) -> None:
     frames = read_xbrl_csv_frames(write_zip(tmp_path / "report.zip", files))
     assert frames.dropped_rows == {"c_27.00": (1, 3)}
     assert frames.tables["c_27.00"]["c0010"].cast(str).to_list() == ["A", "C", "D"]
+
+
+def test_files_read_together_report_in_package_order(tmp_path) -> None:
+    files = {
+        "reports/c_01.00.csv": csv_text("datapoint,factValue", "dp1,#nil"),
+        **{
+            f"reports/c_{n:02d}.00.csv": csv_text(
+                "datapoint,factValue,c0010", f"dp{n},#nil,A", f"dp{n},1,A"
+            )
+            for n in range(2, 12)
+        },
+    }
+    broken = {
+        **files,
+        "reports/c_05.00.csv": "no header\n",
+        "reports/c_12.00.csv": "no header\n",
+    }
+    path = write_zip(tmp_path / "report.zip", open_files(**broken))
+    # The first broken file in package order fails the read.
+    with pytest.raises(ReportError, match=r"reports/c_05\.00\.csv:1"):
+        read_xbrl_csv_frames(path)
+
+    frames = read_xbrl_csv_frames(write_zip(tmp_path / "ok.zip", open_files(**files)))
+    nil = next(item for item in frames.report.filing if item.code == "nilUsed")
+    assert nil.count == 11
+    assert nil.examples == tuple(f"reports/c_{n:02d}.00.csv:2" for n in range(1, 6))
+    tables = [
+        warning.split(":")[0]
+        for warning in frames.report.warnings
+        if "conflicting duplicate facts" in warning
+    ]
+    assert tables == [f"reports/c_{n:02d}.00.csv" for n in range(2, 12)]
