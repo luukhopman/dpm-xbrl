@@ -20,7 +20,7 @@ from tests.support import (
     write_zip,
     zip_bytes,
 )
-from xbrlreport import (
+from dpmxbrl import (
     Fact,
     Limits,
     ReportError,

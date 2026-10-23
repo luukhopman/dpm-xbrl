@@ -16,7 +16,7 @@ from tests.support import (
     taxonomy_package,
     write_zip,
 )
-from xbrlreport import (
+from dpmxbrl import (
     Fact,
     Report,
     ReportError,

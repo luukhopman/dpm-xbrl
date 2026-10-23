@@ -3,7 +3,7 @@
 The reader streams the instance with ``iterparse``, clears each top-level
 element once processed, and rejects any DOCTYPE before parsing so that no
 entity is ever declared or resolved. The same pass records the EBA filing
-rules the instance breaks (see :mod:`xbrlreport.filing`).
+rules the instance breaks (see :mod:`dpmxbrl.filing`).
 """
 
 from __future__ import annotations

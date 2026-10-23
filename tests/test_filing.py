@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from tests.support import csv_text, open_files, report_json, write_zip
-from xbrlreport import Report, read_report
-from xbrlreport.filing import (
+from dpmxbrl import Report, read_report
+from dpmxbrl.filing import (
     RULE_TITLES,
     FilingFinding,
     FilingLog,

@@ -1,13 +1,16 @@
-# xbrl-report
+# dpm-xbrl
 
 Read and write EBA-style regulatory XBRL reports in both serializations, xBRL-CSV
 report packages and XBRL 2.1 XML instances, through one neutral fact model.
+It targets reports built on the data point model (DPM) taxonomies of the
+European Banking Authority and is tested on EBA reports. It is an independent
+project, not affiliated with or endorsed by the EBA.
 The package uses only the standard library and needs Python 3.11 or newer.
 The optional `fast` extra adds `isal`, which inflates ZIP entries about twice
 as fast as zlib; the bytes read are the same either way.
 
 ```python
-from xbrlreport import read_report
+from dpmxbrl import read_report
 
 report = read_report("report.zip")  # or a directory, report.json, .xbrl, or bytes
 print(report.entity_id, report.reference_date, len(report.facts))
@@ -17,7 +20,7 @@ for fact in report.facts_for_template("C_01.00"):
 
 ## Model
 
-`xbrlreport.model` (re-exported from `xbrlreport`) defines two frozen, slotted
+`dpmxbrl.model` (re-exported from `dpmxbrl`) defines two frozen, slotted
 dataclasses:
 
 - `Fact`: `value` (lexical value as written, `None` when nil), `concept`
@@ -150,7 +153,7 @@ Both readers record the [EBA Filing Rules](https://www.eba.europa.eu/sites/defau
 `Report.filing`: one `FilingFinding` per rule and problem, with the rule's
 number (`2.19`), its tag in the EBA document (`nilUsed`), a severity, a
 message, how many times it occurs and up to five locations.
-`xbrlreport.filing.RULE_TITLES` names each rule. Severity is `error` where the
+`dpmxbrl.filing.RULE_TITLES` names each rule. Severity is `error` where the
 rule says MUST (EBA rejects the report) and `warning` where it says SHOULD;
 file-naming findings are warnings because each supervisor confirms its own
 naming.
@@ -183,11 +186,11 @@ naming.
   (3.11).
 
 Rules that need the taxonomy are left to the caller, which can build
-`FilingFinding`s and merge them with `xbrlreport.filing.FilingLog`: a filing
+`FilingFinding`s and merge them with `dpmxbrl.filing.FilingLog`: a filing
 indicator for every template of the module and only valid codes (1.6, 1.6.3),
 facts outside the reported templates (1.7.1), minimum decimals per data type
 (2.18), fact values without leading or trailing spaces, which applies to
-string data points only (3.11, `SPACES` in `xbrlreport.filing`), an entry
+string data points only (3.11, `SPACES` in `dpmxbrl.filing`), an entry
 point valid for the reference date (1.5), and `baseCurrency` when monetary
 facts use it. Not checked: units against the XBRL unit registry (2.23),
 decimal notation for rates (3.2), canonical prefixes (3.5),
@@ -195,7 +198,7 @@ generating-software information (2.26) and comments (2.5).
 `read_xbrl_csv_frames` checks special fact values only; the decimals suffix,
 spaces around key values and special key values are left to callers that
 split values by data type, which can record them with the same messages
-(`DECIMALS_SUFFIX`, `KEY_SPACES`, `SPECIAL_KEY_VALUE` in `xbrlreport.filing`).
+(`DECIMALS_SUFFIX`, `KEY_SPACES`, `SPECIAL_KEY_VALUE` in `dpmxbrl.filing`).
 
 ## Writing
 
@@ -230,8 +233,8 @@ cover these round trips.
 ## CLI
 
 ```
-xbrl-report inspect PATH [--json] [--taxonomy-package ZIP ...]
-xbrl-report convert IN OUT [--taxonomy-package ZIP ...]
+dpm-xbrl inspect PATH [--json] [--taxonomy-package ZIP ...]
+dpm-xbrl convert IN OUT [--taxonomy-package ZIP ...]
                            [--typed-domain DIMENSION=ELEMENT ...] [--root NAME]
 ```
 

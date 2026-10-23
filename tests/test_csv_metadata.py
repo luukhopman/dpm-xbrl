@@ -21,7 +21,7 @@ from tests.support import (
     write_directory,
     write_zip,
 )
-from xbrlreport import Fact, Limits, ReportError, read_report
+from dpmxbrl import Fact, Limits, ReportError, read_report
 
 
 def test_taxonomy_package_resolves_property_groups(tmp_path: Path) -> None:

@@ -12,6 +12,52 @@ wheels = [
 ]
 
 [[package]]
+name = "dpm-xbrl"
+version = "0.1.0"
+source = { editable = "." }
+
+[package.optional-dependencies]
+fast = [
+    { name = "isal" },
+]
+frames = [
+    { name = "polars" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+lint = [
+    { name = "ruff" },
+    { name = "ty" },
+]
+test = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "isal", marker = "extra == 'fast'", specifier = ">=1.8,<2" },
+    { name = "polars", marker = "extra == 'frames'", specifier = ">=2.0,<3" },
+]
+provides-extras = ["frames", "fast"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+lint = [
+    { name = "ruff" },
+    { name = "ty" },
+]
+test = [{ name = "pytest" }]
+
+[[package]]
 name = "iniconfig"
 version = "2.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -183,49 +229,3 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d2/54/be5cd6b17d8087a5e4c26892311c07e39d42b66c925b0f06cfc51a9ce83b/ty-0.0.90-py3-none-win_amd64.whl", hash = "sha256:8d77c16d20201b7a07ccaafb610eaf60488783dbba9865c4f9182e584f1426f8", size = 13855668, upload-time = "2026-10-20T14:25:13.648Z" },
     { url = "https://files.pythonhosted.org/packages/33/68/6dea089a897e8b314504eecc2633de3c8fe14f70e71a35606d14a2ba169e/ty-0.0.90-py3-none-win_arm64.whl", hash = "sha256:bfb63e74eeedb0a29d49cf58d611c540bfdfc0975dfce26efc6575bcf439208d", size = 13330853, upload-time = "2026-10-20T14:25:16.642Z" },
 ]
-
-[[package]]
-name = "xbrl-report"
-version = "0.1.0"
-source = { editable = "." }
-
-[package.optional-dependencies]
-fast = [
-    { name = "isal" },
-]
-frames = [
-    { name = "polars" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-lint = [
-    { name = "ruff" },
-    { name = "ty" },
-]
-test = [
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "isal", marker = "extra == 'fast'", specifier = ">=1.8,<2" },
-    { name = "polars", marker = "extra == 'frames'", specifier = ">=2.0,<3" },
-]
-provides-extras = ["frames", "fast"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-lint = [
-    { name = "ruff" },
-    { name = "ty" },
-]
-test = [{ name = "pytest" }]

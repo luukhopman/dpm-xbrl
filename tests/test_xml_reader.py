@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from tests.support import LEI, XML_INSTANCE
-from xbrlreport import (
+from dpmxbrl import (
     Fact,
     Limits,
     ReportError,

@@ -1,6 +1,6 @@
 """Columnar xBRL-CSV reading: one polars data frame per table.
 
-:func:`read_xbrl_csv` builds one :class:`~xbrlreport.model.Fact` per row, which
+:func:`read_xbrl_csv` builds one :class:`~dpmxbrl.model.Fact` per row, which
 is convenient but costs several microseconds per fact in Python. Reports with
 millions of open-table rows need columnar access instead:
 :func:`read_xbrl_csv_frames` applies the same package, ``report.json``,

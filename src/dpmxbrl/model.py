@@ -72,7 +72,7 @@ class FilingFinding:
     """One EBA filing rule a report breaks, with how often and where.
 
     Attributes:
-        rule: The rule's number, a key of :data:`xbrlreport.filing.RULE_TITLES`.
+        rule: The rule's number, a key of :data:`dpmxbrl.filing.RULE_TITLES`.
         code: The rule's tag in the EBA document, such as ``nilUsed``.
         severity: ``error`` when the rule says MUST, ``warning`` for SHOULD.
         message: What is wrong and what the rule requires, as a sentence.
@@ -108,7 +108,7 @@ class Report:
         namespaces: Prefix to namespace URI.
         warnings: Non-fatal findings in deterministic order.
         filing: EBA filing rules the report breaks that the file alone
-            shows (see :mod:`xbrlreport.filing`), in rule order.
+            shows (see :mod:`dpmxbrl.filing`), in rule order.
     """
 
     format: ReportFormat

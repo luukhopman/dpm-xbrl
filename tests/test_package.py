@@ -6,8 +6,8 @@ from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
 import pytest
 
-from xbrlreport import Limits, ReportError, _package
-from xbrlreport._package import open_zip_package
+from dpmxbrl import Limits, ReportError, _package
+from dpmxbrl._package import open_zip_package
 
 pytest.importorskip("isal")
 

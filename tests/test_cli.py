@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 from tests.support import XML_INSTANCE, open_files, write_zip
-from xbrlreport import read_report
-from xbrlreport.cli import main
+from dpmxbrl import read_report
+from dpmxbrl.cli import main
 
 
 def test_inspect_text(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

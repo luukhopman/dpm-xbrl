@@ -113,7 +113,7 @@ def _typed_domains(values: Sequence[str]) -> dict[str, str]:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="xbrl-report",
+        prog="dpm-xbrl",
         description="Inspect and convert EBA xBRL-CSV and XBRL-XML reports.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
@@ -146,7 +146,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the ``xbrl-report`` command.
+    """Run the ``dpm-xbrl`` command.
 
     Returns:
         int: Process exit status; 1 when the report cannot be processed.
