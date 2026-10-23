@@ -21,7 +21,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
-from ._package import Package, open_directory_package, open_zip_package
+from ._package import (
+    DAMAGED_ENTRY_ERRORS,
+    DamagedEntryError,
+    Package,
+    open_directory_package,
+    open_zip_package,
+)
 from ._taxonomy import TaxonomyPackages
 from ._util import WarningLog, load_json_object
 from .model import Fact, Limits, Report, ReportError
@@ -428,6 +434,8 @@ class _CsvReportReader:
                 ) from error
             except csv.Error as error:
                 raise ReportError(f"{label}:{reader.line_num}: {error}") from error
+            except DAMAGED_ENTRY_ERRORS as error:
+                raise DamagedEntryError(self._package.label, name, error) from error
 
     def _read_parameters(self, metadata: _Metadata, label: str) -> dict[str, str]:
         lines: dict[str, str] = {}

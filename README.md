@@ -138,6 +138,7 @@ for absolute or `..` entry names, duplicate entries and encrypted entries, and
 package directories for links that leave the directory. The file-size limit
 also applies to XML instances and to files read from taxonomy packages. CSV
 rows are streamed with the `csv` module (`utf-8-sig`), including from ZIPs.
+An entry whose compressed data is damaged raises `ReportError` naming the entry.
 
 ## Writing
 

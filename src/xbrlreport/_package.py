@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import os
 import re
+import zlib
 from pathlib import Path
 from types import TracebackType
 from typing import IO
@@ -13,6 +14,16 @@ from zipfile import BadZipFile, ZipFile, ZipInfo
 from .model import Limits, ReportError
 
 _DRIVE = re.compile(r"^[A-Za-z]:")
+# What zipfile raises for an entry whose compressed data is damaged.
+DAMAGED_ENTRY_ERRORS = (BadZipFile, EOFError, zlib.error)
+
+
+class DamagedEntryError(ReportError):
+    """A package entry whose compressed data cannot be decompressed."""
+
+    def __init__(self, label: str, name: str, error: Exception) -> None:
+        """Describe the entry and the decompression error."""
+        super().__init__(f"{label}: {name} is damaged and cannot be read ({error})")
 
 
 def check_member_name(name: str, label: str) -> None:
@@ -96,9 +107,15 @@ class Package:
 
         Returns:
             bytes: File content.
+
+        Raises:
+            DamagedEntryError: If the file's compressed data is damaged.
         """
         with self.open(name) as stream:
-            return stream.read()
+            try:
+                return stream.read()
+            except DAMAGED_ENTRY_ERRORS as error:
+                raise DamagedEntryError(self.label, name, error) from error
 
 
 def open_zip_package(source: bytes | Path, *, label: str, limits: Limits) -> Package:

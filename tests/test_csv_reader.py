@@ -413,6 +413,16 @@ def test_encrypted_zip_entries_are_rejected() -> None:
         read_report(bytes(data))
 
 
+@pytest.mark.parametrize("damaged", ["reports/report.json", "reports/parameters.csv"])
+def test_damaged_zip_entries_are_reported(damaged: str) -> None:
+    data = bytearray(zip_bytes(closed_files()))
+    # Flip a byte inside the entry's compressed data, after its local header.
+    position = data.find(damaged.encode()) + len(damaged)
+    data[position + 4] ^= 0xFF
+    with pytest.raises(ReportError, match=f"{damaged} is damaged and cannot be read"):
+        read_report(bytes(data), name="pkg.zip")
+
+
 def test_limits_are_enforced(tmp_path: Path) -> None:
     path = write_zip(tmp_path / "r.zip", open_files())
     with pytest.raises(ReportError, match="ZIP entries exceed the limit of 3"):
