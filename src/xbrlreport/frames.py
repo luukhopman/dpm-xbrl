@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import io
 import os
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -79,6 +80,7 @@ def read_xbrl_csv_frames(
     taxonomy_packages: Sequence[str | Path] = (),
     limits: Limits = Limits(),
     on_metadata: Callable[[Report], None] | None = None,
+    on_table: Callable[[str, pl.DataFrame, tuple[int, ...]], None] | None = None,
 ) -> ReportFrames:
     """Read an xBRL-CSV report package into columnar table frames.
 
@@ -92,6 +94,12 @@ def read_xbrl_csv_frames(
             parameters and filing indicators, no facts) before the tables
             are read, so callers can start dependent work that overlaps the
             table parsing. Exceptions it raises abort the read.
+        on_table: Called on the calling thread with each template ID, its
+            frame and its removed rows (as in :attr:`ReportFrames.tables` and
+            :attr:`ReportFrames.dropped_rows`) as soon as the template's last
+            file is read, in package order, so callers can process tables
+            while later ones are still being read. Exceptions it raises abort
+            the read.
 
     Returns:
         ReportFrames: Report metadata and the table frames.
@@ -121,6 +129,7 @@ def read_xbrl_csv_frames(
                 taxonomy=taxonomy,
                 limits=limits,
                 on_metadata=on_metadata,
+                on_table=on_table,
             )
             report = reader.read()
             return ReportFrames(report, reader.frames(), reader.dropped_rows())
@@ -134,6 +143,7 @@ class _FrameReader(_CsvReportReader):
         self,
         *args: Any,
         on_metadata: Callable[[Report], None] | None = None,
+        on_table: Callable[[str, pl.DataFrame, tuple[int, ...]], None] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -143,6 +153,7 @@ class _FrameReader(_CsvReportReader):
         self._rows_in_files: dict[str, int] = {}
         self._dropped: dict[str, list[int]] = {}
         self._on_metadata = on_metadata
+        self._on_table = on_table
         self._pool: ThreadPoolExecutor | None = None
         self._scheduled: list[tuple[str, Future[_Parsed]]] = []
 
@@ -160,8 +171,16 @@ class _FrameReader(_CsvReportReader):
             self._pool = pool
             try:
                 super()._read_tables(metadata)
+                remaining = Counter(template for template, _ in self._scheduled)
                 for template_id, parsed in self._scheduled:
                     self._take(template_id, parsed.result())
+                    remaining[template_id] -= 1
+                    if not remaining[template_id] and self._on_table is not None:
+                        self._on_table(
+                            template_id,
+                            self._frame(template_id),
+                            tuple(self._dropped.get(template_id, ())),
+                        )
             finally:
                 for _, parsed in self._scheduled:
                     parsed.cancel()

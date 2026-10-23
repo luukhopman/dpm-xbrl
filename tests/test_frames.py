@@ -183,6 +183,45 @@ def test_dropped_rows_continue_across_the_files_of_a_template(tmp_path) -> None:
     assert frames.tables["c_27.00"]["c0010"].cast(str).to_list() == ["A", "C", "D"]
 
 
+def test_tables_arrive_once_their_last_file_is_read(tmp_path) -> None:
+    tables = {
+        "a": {"url": "c_27.00.a.csv", "template": "c_27.00"},
+        "b": {"url": "c_27.00.b.csv", "template": "c_27.00"},
+    }
+    files = open_files(
+        **{
+            "reports/report.json": report_json(tables=tables),
+            "reports/c_01.00.csv": csv_text("datapoint,factValue", "dp1,1", "dp2,"),
+            "reports/c_27.00.csv": None,
+            "reports/c_27.00.a.csv": csv_text(
+                "datapoint,factValue,c0010", "dp100,1,A", "dp100,,B"
+            ),
+            "reports/c_27.00.b.csv": csv_text(
+                "datapoint,factValue,c0010", "dp100,2,C", "dp100,2,C", "dp100,3,D"
+            ),
+        }
+    )
+    path = write_zip(tmp_path / "report.zip", files)
+    seen: list[tuple[str, object, tuple[int, ...]]] = []
+    frames = read_xbrl_csv_frames(path, on_table=lambda *table: seen.append(table))
+
+    # Each template once, in package order, as ReportFrames holds it.
+    assert [template for template, _, _ in seen] == list(frames.tables)
+    for template, frame, dropped in seen:
+        assert frame is frames.tables[template]
+        assert dropped == frames.dropped_rows.get(template, ())
+    assert frames.dropped_rows == {"c_01.00": (1,), "c_27.00": (1, 3)}
+
+    class Stop(Exception):
+        pass
+
+    def stop(*_table: object) -> None:
+        raise Stop
+
+    with pytest.raises(Stop):
+        read_xbrl_csv_frames(path, on_table=stop)
+
+
 def test_files_read_together_report_in_package_order(tmp_path) -> None:
     files = {
         "reports/c_01.00.csv": csv_text("datapoint,factValue", "dp1,#nil"),
