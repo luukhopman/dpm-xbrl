@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from .filing import RULE_TITLES
 from .model import Report, ReportError
 from .reader import read_report
 from .writer import write_xbrl_csv, write_xbrl_xml
@@ -35,6 +36,18 @@ def _summary(report: Report) -> dict[str, Any]:
         "fact_count": len(report.facts),
         "facts_per_template": dict(sorted(templates.items())),
         "warnings": list(report.warnings),
+        "filing_rules": [
+            {
+                "rule": item.rule,
+                "title": RULE_TITLES.get(item.rule, item.rule),
+                "code": item.code,
+                "severity": item.severity,
+                "message": item.message,
+                "count": item.count,
+                "examples": list(item.examples),
+            }
+            for item in report.filing
+        ],
     }
 
 
@@ -67,6 +80,15 @@ def _print_summary(summary: dict[str, Any]) -> None:
     print(f"Warnings: {len(warnings)}")
     for warning in warnings:
         print(f"  - {warning}")
+    findings = summary["filing_rules"]
+    errors = sum(1 for item in findings if item["severity"] == "error")
+    print(
+        f"EBA filing rules broken: {errors} must be fixed, "
+        f"{len(findings) - errors} recommended"
+    )
+    for item in findings:
+        times = f" ({item['count']} times)" if item["count"] > 1 else ""
+        print(f"  - [{item['severity']}] {item['rule']} {item['message']}{times}")
 
 
 def _typed_domains(values: Sequence[str]) -> dict[str, str]:

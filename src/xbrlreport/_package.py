@@ -94,6 +94,11 @@ class Package:
         if self._archive is not None:
             self._archive.close()
 
+    @property
+    def is_archive(self) -> bool:
+        """Whether the package is a ZIP archive rather than a directory."""
+        return self._archive is not None
+
     def __contains__(self, name: object) -> bool:
         """Return whether the package holds one file name."""
         return name in self._name_set

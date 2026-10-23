@@ -10,6 +10,12 @@ key columns), applying the same special-value and duplicate rules.
 
 Requires the optional ``frames`` extra (``polars``). Tables described by
 resolved xBRL-CSV metadata are not supported here; use :func:`read_xbrl_csv`.
+
+Filing-rule findings on values are limited to special values (``#nil``,
+``#empty`` and others). Checks that :func:`read_xbrl_csv` makes on every value
+(the decimals suffix, leading or trailing spaces, special key values) cost a
+second scan of millions of strings, so they are left to callers that already
+split values by data type and key column.
 """
 
 from __future__ import annotations
@@ -24,7 +30,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ._taxonomy import TaxonomyPackages
-from .csv_reader import MetadataResolver, _CsvReportReader, _open_package
+from .csv_reader import (
+    _EMPTY,
+    _NIL,
+    _SPECIAL,
+    MetadataResolver,
+    _CsvReportReader,
+    _open_package,
+)
 from .model import Limits, Report, ReportError
 
 if TYPE_CHECKING:
@@ -179,24 +192,17 @@ class _FrameReader(_CsvReportReader):
             )
         value = pl.col("factValue")
         special = value.str.starts_with("#") & ~value.str.starts_with("##")
-        skipped = frame.filter(value.is_in(["#empty", "#none"])).height
-        nils = frame.filter(value == "#nil").height
-        unknown = frame.filter(
-            special & ~value.is_in(["#empty", "#none", "#nil"])
-        ).height
-        if skipped:
-            self._warnings.count(
-                f"{display}: '#empty'/'#none' fact values skipped", display
-            )
-        if nils:
-            self._warnings.count(
-                f"{display}: '#nil' fact values read as nil facts", display
-            )
-        if unknown:
-            self._warnings.count(
-                f"{display}: unknown special values starting with '#' kept as written",
-                display,
-            )
+        if frame.select(special.any()).item():
+            for finding, mask in (
+                (_NIL, value == "#nil"),
+                (_EMPTY, value == "#empty"),
+                (_SPECIAL, special & ~value.is_in(["#nil", "#empty"])),
+            ):
+                rows = frame.select(pl.arg_where(mask)).to_series()
+                # Data rows start on line 2, after the header.
+                for row in rows.head(5):
+                    self._filing.add(*finding, f"{display}:{row + 2}")
+                self._filing.add(*finding, count=rows.len() - min(rows.len(), 5))
         frame = frame.filter(
             (value != "") & ~value.is_in(["#empty", "#none"])
         ).with_columns(

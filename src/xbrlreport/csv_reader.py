@@ -30,6 +30,7 @@ from ._package import (
 )
 from ._taxonomy import TaxonomyPackages
 from ._util import WarningLog, load_json_object
+from .filing import FilingLog, check_entry_point, check_file_name, check_subject
 from .model import Fact, Limits, Report, ReportError
 
 XBRL_CSV_DOCUMENT_TYPE = "https://xbrl.org/2021/xbrl-csv"
@@ -51,6 +52,51 @@ _ENTITY_SCHEMES = {
     "lei": "http://standards.iso.org/iso/17442",
     "rs": "https://eurofiling.info/eu/rs",
 }
+_PLAIN_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_DECIMALS_SUFFIX = re.compile(r"[-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?d(?:[-+]?[0-9]+|INF)")
+"""A value with the xBRL-CSV decimals suffix, such as ``78920030d-4``."""
+_TABLE_SUFFIX = re.compile(r"(\.[a-z])+$", re.IGNORECASE)
+"""Letter suffixes of a table code that its filing indicator omits."""
+
+# Findings on fact and key values, shared with the columnar reader.
+_NIL = (
+    "2.19",
+    "nilUsed",
+    "error",
+    "Facts must not be reported as #nil; leave out a fact that is not reported.",
+)
+_EMPTY = (
+    "2.19",
+    "emptyUsed",
+    "error",
+    "Facts must not be reported as #empty; such values were skipped.",
+)
+_SPECIAL = (
+    "xBRL-CSV 5",
+    "specialValueUsed",
+    "error",
+    "Fact values must not use special values starting with # (#none, #empty, "
+    "#nil or others).",
+)
+_SPECIAL_KEY = (
+    "xBRL-CSV 5",
+    "specialKeyValueUsed",
+    "error",
+    "Key columns must not use special values starting with #.",
+)
+_DECIMALS_SUFFIX_USED = (
+    "xBRL-CSV 1",
+    "decimalsSuffixUsed",
+    "error",
+    "Fact values must not use the decimals suffix (such as 78920030d-4); "
+    "decimals belong in parameters.csv.",
+)
+_SPACES = (
+    "3.11",
+    "leadingOrTrailingSpacesInText",
+    "warning",
+    "Fact values should not start or end with spaces or line breaks.",
+)
 
 MetadataResolver = Callable[[str], bytes | None]
 _Ref = tuple[str, str]
@@ -210,10 +256,12 @@ class _CsvReportReader:
         self._taxonomy = taxonomy
         self._limits = limits
         self._warnings = WarningLog()
+        self._filing = FilingLog()
         self._facts: list[Fact] = []
         self._seen: dict[tuple[Any, ...], str | None] = {}
         self._namespaces: dict[str, str] = {}
         self._parameters: dict[str, str] = {}
+        self._negative: set[str] = set()
 
     def _display(self, name: str) -> str:
         return name.removeprefix(self._root_prefix)
@@ -238,6 +286,16 @@ class _CsvReportReader:
         ):
             raise ReportError(f"{label}: 'documentInfo.extends' must list URLs")
         entry_point = extends[0] if extends else None
+        check_entry_point(extends, self._filing, where=label, xml=False)
+        if "taxonomy" in info:
+            self._filing.add(
+                "1.5",
+                "multipleTaxonomyRefs",
+                "error",
+                "report.json must not populate documentInfo.taxonomy; the entry "
+                "point in documentInfo.extends names the taxonomy.",
+                label,
+            )
 
         metadata = _Metadata()
         root_ref: _Ref = ("pkg", self._report_json)
@@ -260,6 +318,11 @@ class _CsvReportReader:
         reference_date = self._reference_date(parameter_lines, label)
         decimals_parameters = self._decimals_parameters(parameter_lines, label)
         filing_indicators = self._read_filing_indicators()
+        self._negative = {
+            code.casefold()
+            for code, reported in filing_indicators.items()
+            if not reported
+        }
         header = Report(
             format="xbrl-csv",
             entry_point=entry_point,
@@ -273,11 +336,34 @@ class _CsvReportReader:
             facts=(),
             namespaces=dict(metadata.namespaces),
         )
+        check_subject(header, self._filing)
+        self._check_names(header)
         self._before_tables(header)
         self._read_tables(metadata)
         return replace(
-            header, facts=tuple(self._facts), warnings=self._warnings.result()
+            header,
+            facts=tuple(self._facts),
+            warnings=self._warnings.result(),
+            filing=self._filing.result(),
         )
+
+    def _check_names(self, header: Report) -> None:
+        """Check the package file and root folder names (EBA file naming)."""
+        if not self._package.is_archive:
+            return
+        file_name = posixpath.basename(self._package.label.replace("\\", "/"))
+        if not file_name.casefold().endswith(".zip"):
+            return
+        check_file_name(file_name, header, self._filing)
+        root = self._root_prefix.rstrip("/")
+        if root != file_name[: -len(".zip")]:
+            self._filing.add(
+                "File naming",
+                "invalidRootFolder",
+                "warning",
+                "The package's root folder should be named as the file, without .zip.",
+                f"{file_name}: {root or '(no root folder)'}",
+            )
 
     def _before_tables(self, header: Report) -> None:
         """Called with the report's metadata before any table is read."""
@@ -287,6 +373,14 @@ class _CsvReportReader:
     def _check_report_package(self) -> None:
         name = f"{self._root_prefix}META-INF/reportPackage.json"
         if name not in self._package:
+            if self._package.is_archive:
+                self._filing.add(
+                    "Package",
+                    "missingReportPackageJson",
+                    "error",
+                    "The package must contain META-INF/reportPackage.json.",
+                    self._package.label,
+                )
             return
         label = self._display(name)
         document = load_json_object(self._package.read(name), label)
@@ -453,7 +547,13 @@ class _CsvReportReader:
         url = metadata.parameter_url or "parameters.csv"
         name = self._local(url)
         if name is None or name not in self._package:
-            self._warnings.add(f"{label}: no parameters file {url!r} in the package")
+            self._filing.add(
+                "Package",
+                "missingParametersFile",
+                "error",
+                f"The package must contain the parameters file {url}.",
+                label,
+            )
             return lines
         display = self._display(name)
         rows = self._csv_rows(name)
@@ -494,9 +594,25 @@ class _CsvReportReader:
     def _reference_date(self, lines: Mapping[str, str], label: str) -> date | None:
         value = self._parameters.get("refPeriod")
         if not value:
+            self._filing.add(
+                "Package",
+                "missingReferencePeriod",
+                "error",
+                "parameters.csv must give the reference date as refPeriod.",
+                lines.get("refPeriod", label),
+            )
             return None
+        if not _PLAIN_DATE.fullmatch(value):
+            self._filing.add(
+                "2.10",
+                "periodWithTimeContent" if "T" in value else "periodWithTimezone",
+                "error",
+                "refPeriod must be a plain date (YYYY-MM-DD) without a time or "
+                "time zone.",
+                f"{lines.get('refPeriod', label)}: {value}",
+            )
         try:
-            return date.fromisoformat(value.strip())
+            return date.fromisoformat(value.strip()[:10])
         except ValueError as error:
             raise ReportError(
                 f"{lines.get('refPeriod', label)}: refPeriod {value!r} is not a "
@@ -529,7 +645,14 @@ class _CsvReportReader:
     def _read_filing_indicators(self) -> dict[str, bool]:
         name = self._filing_indicator_name()
         if name is None:
-            self._warnings.add("no FilingIndicators.csv in the report package")
+            self._filing.add(
+                "1.6",
+                "missingFilingIndicators",
+                "error",
+                "The package must contain reports/FilingIndicators.csv with a "
+                "filing indicator for each template of the module.",
+                self._package.label,
+            )
             return {}
         display = self._display(name)
         rows = self._csv_rows(name)
@@ -553,9 +676,13 @@ class _CsvReportReader:
                     f"{display}:{line}: invalid filing indicator "
                     f"{template!r},{raw!r}; reported must be true, false, 1 or 0"
                 )
-            if template in result and result[template] != reported:
-                self._warnings.add(
-                    f"{display}:{line}: conflicting filing indicator for {template}"
+            if template in result:
+                self._filing.add(
+                    "1.6.1",
+                    "duplicateFilingIndicator",
+                    "error",
+                    "Each template must have exactly one filing indicator.",
+                    f"{display}:{line}: {template}",
                 )
             result[template] = reported
         return result
@@ -591,6 +718,15 @@ class _CsvReportReader:
             template_id, table_parameters = mapped.get(
                 name, (posixpath.splitext(posixpath.basename(name))[0], {})
             )
+            if self._not_reported(template_id):
+                self._filing.add(
+                    "xBRL-CSV 6",
+                    "tableForNegativeFilingIndicator",
+                    "error",
+                    "The package must not contain the table file of a template "
+                    "whose filing indicator is false.",
+                    self._display(name),
+                )
             template = metadata.table_templates.get(template_id)
             if isinstance(template, dict) and isinstance(template.get("columns"), dict):
                 self._read_metadata_table(
@@ -598,6 +734,14 @@ class _CsvReportReader:
                 )
             else:
                 self._read_convention_table(name, template_id)
+
+    def _not_reported(self, template_id: str) -> bool:
+        """Check whether a table's template has a negative filing indicator.
+
+        Returns:
+            bool: Whether the template is indicated as not reported.
+        """
+        return _TABLE_SUFFIX.sub("", template_id).casefold() in self._negative
 
     def _header(self, rows: Iterator[tuple[int, list[str]]], display: str) -> list[str]:
         first = next(rows, None)
@@ -631,20 +775,25 @@ class _CsvReportReader:
         if cell.startswith("##"):
             return True, cell[1:]
         if not cell.startswith("#"):
+            if cell != cell.strip():
+                self._filing.add(*_SPACES, location)
+            elif "d" in cell and _DECIMALS_SUFFIX.fullmatch(cell):
+                self._filing.add(*_DECIMALS_SUFFIX_USED, location)
             return True, cell
         if cell == "#nil":
-            self._warnings.count(
-                f"{display}: '#nil' fact values read as nil facts", location
-            )
+            self._filing.add(*_NIL, location)
             return True, None
-        if cell in {"#empty", "#none"}:
-            self._warnings.count(f"{display}: {cell!r} fact values skipped", location)
+        if cell == "#empty":
+            self._filing.add(*_EMPTY, location)
             return False, None
-        self._warnings.count(
-            f"{display}: unknown special values starting with '#' kept as written",
-            location,
-        )
-        return True, cell
+        self._filing.add(*_SPECIAL, location)
+        return cell != "#none", None if cell == "#none" else cell
+
+    def _check_keys(self, keys: Mapping[str, str], location: str) -> None:
+        """Check key column values for special values (xBRL-CSV rule 5)."""
+        for value in keys.values():
+            if value.startswith("#") and not value.startswith("##"):
+                self._filing.add(*_SPECIAL_KEY, location)
 
     def _emit(self, fact: Fact, key: tuple[Any, ...], display: str) -> None:
         if key in self._seen:
@@ -690,6 +839,7 @@ class _CsvReportReader:
             if datapoint is None:
                 self._warnings.count(f"{display}: facts without a datapoint", location)
             keys = {column: row[index] for index, column in key_columns}
+            self._check_keys(keys, location)
             self._emit(
                 Fact(
                     value=value,
@@ -794,6 +944,7 @@ class _CsvReportReader:
             location = f"{display}:{line}"
             cells = dict(zip(header, row, strict=True))
             keys = {column: row[index] for index, column in key_columns}
+            self._check_keys(keys, location)
             key_items = tuple(keys.items())
             for column in fact_columns:
                 keep, value = self._fact_value(row[column.index], display, location)

@@ -152,7 +152,7 @@ def test_csv_writer_entity_scheme_prefixes() -> None:
     assert again.entity_scheme == "http://standards.iso.org/iso/17442"
     assert again.namespaces == {"lei": "http://standards.iso.org/iso/17442"}
     assert again.facts == ()
-    assert any("'#empty' fact values skipped" in item for item in again.warnings)
+    assert [item.code for item in again.filing if item.rule == "2.19"] == ["emptyUsed"]
 
 
 def test_xml_round_trip(tmp_path: Path) -> None:

@@ -254,13 +254,18 @@ def test_special_values_and_escapes(tmp_path: Path) -> None:
         ("dp5", "#odd"),
         ("dp6", None),
     ]
-    assert (
-        "reports/c_01.00.csv: '#nil' fact values read as nil facts "
-        "(2 occurrences, first at reports/c_01.00.csv:2)"
-    ) in report.warnings
-    assert any("'#empty' fact values skipped" in item for item in report.warnings)
-    assert any("'#none' fact values skipped" in item for item in report.warnings)
-    assert any("kept as written" in item for item in report.warnings)
+    found = {item.code: item for item in report.filing}
+    assert (found["nilUsed"].rule, found["nilUsed"].count) == ("2.19", 2)
+    assert found["nilUsed"].examples == (
+        "reports/c_01.00.csv:2",
+        "reports/c_01.00.csv:7",
+    )
+    assert found["emptyUsed"].examples == ("reports/c_01.00.csv:3",)
+    assert found["specialValueUsed"].rule == "xBRL-CSV 5"
+    assert found["specialValueUsed"].examples == (
+        "reports/c_01.00.csv:4",
+        "reports/c_01.00.csv:6",
+    )
 
 
 def test_duplicates(tmp_path: Path) -> None:
@@ -327,15 +332,18 @@ def test_eba_entity_prefixes_resolve_without_a_namespace(tmp_path: Path) -> None
     )
     assert report.base_currency is None
     assert report.filing_indicators == {}
-    assert "no FilingIndicators.csv in the report package" in report.warnings
+    missing = next(item for item in report.filing if item.rule == "1.6")
+    assert (missing.code, missing.severity) == ("missingFilingIndicators", "error")
 
 
-def test_missing_parameters_file_warns(tmp_path: Path) -> None:
+def test_missing_parameters_file_breaks_a_filing_rule(tmp_path: Path) -> None:
     files = closed_files(**{"reports/parameters.csv": None})
     report = read_report(write_zip(tmp_path / "r.zip", files))
 
     assert report.entity_id is None and report.reference_date is None
-    assert any("no parameters file" in warning for warning in report.warnings)
+    codes = {(item.rule, item.code) for item in report.filing}
+    assert ("Package", "missingParametersFile") in codes
+    assert ("2.8", "missingIdentifier") in codes
 
 
 def test_inline_tables_mapping_sets_template(tmp_path: Path) -> None:

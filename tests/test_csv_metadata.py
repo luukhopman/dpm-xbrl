@@ -30,10 +30,9 @@ def test_taxonomy_package_resolves_property_groups(tmp_path: Path) -> None:
         write_zip(tmp_path / "r.zip", metadata_files()), taxonomy_packages=[package]
     )
 
-    assert report.warnings == (
-        "reports/c_01.00.csv: '#nil' fact values read as nil facts "
-        "(1 occurrence, first at reports/c_01.00.csv:4)",
-    )
+    assert report.warnings == ()
+    nil = next(item for item in report.filing if item.code == "nilUsed")
+    assert (nil.count, nil.examples) == (1, ("reports/c_01.00.csv:4",))
     assert report.namespaces["eba_met"] == "http://www.eba.europa.eu/xbrl/crr/dict/met"
     assert report.facts_for_template("c_01.00") == (
         Fact(

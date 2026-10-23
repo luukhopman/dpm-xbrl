@@ -1,17 +1,28 @@
 """Read and write EBA-style xBRL-CSV and XBRL-XML regulatory reports."""
 
 from .csv_reader import read_xbrl_csv
-from .model import Fact, Limits, Report, ReportError, ReportFormat, local_name
+from .model import (
+    Fact,
+    FilingFinding,
+    Limits,
+    Report,
+    ReportError,
+    ReportFormat,
+    Severity,
+    local_name,
+)
 from .reader import detect_format, read_report
 from .writer import default_package_root, write_xbrl_csv, write_xbrl_xml
 from .xml_reader import read_xbrl_xml
 
 __all__ = [
     "Fact",
+    "FilingFinding",
     "Limits",
     "Report",
     "ReportError",
     "ReportFormat",
+    "Severity",
     "default_package_root",
     "detect_format",
     "local_name",

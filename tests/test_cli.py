@@ -44,6 +44,17 @@ def test_inspect_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     }
     assert summary["facts_per_template"] == {"(none)": 5}
     assert summary["warnings"] == []
+    nil = next(item for item in summary["filing_rules"] if item["code"] == "nilUsed")
+    assert nil == {
+        "rule": "2.19",
+        "title": "Nil and empty values",
+        "code": "nilUsed",
+        "severity": "error",
+        "message": "Facts must not be nil (xsi:nil); leave out a fact that is not "
+        "reported.",
+        "count": 1,
+        "examples": ["i.xbrl#f3"],
+    }
 
 
 def test_convert(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

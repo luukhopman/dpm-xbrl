@@ -114,3 +114,19 @@ def test_duplicates_and_special_values_match_the_object_reader(tmp_path) -> None
     warnings = " | ".join(frames.report.warnings)
     assert "duplicate facts ignored" in warnings
     assert "conflicting duplicate facts kept" in warnings
+
+    def values(report) -> list[tuple[str, int, tuple[str, ...]]]:
+        return [
+            (item.code, item.count, item.examples)
+            for item in report.filing
+            if item.rule in {"2.19", "xBRL-CSV 5"}
+        ]
+
+    assert (
+        values(frames.report)
+        == values(objects)
+        == [
+            ("emptyUsed", 1, ("reports/c_27.00.csv:7",)),
+            ("nilUsed", 2, ("reports/c_01.00.csv:3", "reports/c_27.00.csv:6")),
+        ]
+    )

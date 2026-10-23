@@ -122,7 +122,7 @@ def test_doctype_is_rejected_in_utf16(tmp_path: Path) -> None:
         read_xbrl_xml(path)
 
 
-def test_multiple_periods_and_entities_warn() -> None:
+def test_multiple_periods_and_entities_break_filing_rules() -> None:
     data = _instance(
         _context("a"),
         _context(
@@ -139,13 +139,15 @@ def test_multiple_periods_and_entities_warn() -> None:
 
     assert report.reference_date == date(2024, 12, 31)
     assert report.entity_id == "E"
-    assert "i.xbrl: facts use 2 distinct periods; EBA filing rules require one" in (
-        report.warnings
+    found = {(item.rule, item.code): item for item in report.filing}
+    assert found["2.9", "multipleIdentifiers"].message == (
+        "All contexts must identify the same entity; the report uses 2 (E, F)."
     )
-    assert any("2 distinct entities" in warning for warning in report.warnings)
+    assert found["2.13", "multiplePeriodsUsed"].severity == "error"
+    assert found["2.13", "nonInstantPeriodUsed"].examples == ("i.xbrl#b",)
 
 
-def test_tuples_precision_and_stray_elements_warn() -> None:
+def test_tuples_and_stray_elements_warn_and_precision_breaks_a_rule() -> None:
     data = _instance(
         _context(),
         '<m:tuple><m:inner contextRef="c">1</m:inner></m:tuple>',
@@ -158,9 +160,9 @@ def test_tuples_precision_and_stray_elements_warn() -> None:
     warnings = "\n".join(report.warnings)
     assert "tuples are not supported" in warnings
     assert "elements without contextRef skipped" in warnings
-    assert "precision attributes ignored (1 occurrence, first at i.xbrl#fact1)" in (
-        warnings
-    )
+    precision = next(item for item in report.filing if item.rule == "2.17")
+    assert (precision.code, precision.count) == ("precisionUsed", 1)
+    assert precision.examples == ("i.xbrl#fact1",)
 
 
 def test_nested_prefix_declarations_are_normalized() -> None:

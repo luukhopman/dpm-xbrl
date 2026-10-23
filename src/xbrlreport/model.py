@@ -8,6 +8,9 @@ from datetime import date
 from typing import Literal
 
 ReportFormat = Literal["xbrl-csv", "xbrl-xml"]
+Severity = Literal["error", "warning"]
+"""``error`` for a "MUST" filing rule (the report is rejected), ``warning``
+for a "SHOULD" rule."""
 
 
 class ReportError(ValueError):
@@ -65,6 +68,27 @@ class Fact:
 
 
 @dataclass(frozen=True, slots=True)
+class FilingFinding:
+    """One EBA filing rule a report breaks, with how often and where.
+
+    Attributes:
+        rule: The rule's number, a key of :data:`xbrlreport.filing.RULE_TITLES`.
+        code: The rule's tag in the EBA document, such as ``nilUsed``.
+        severity: ``error`` when the rule says MUST, ``warning`` for SHOULD.
+        message: What is wrong and what the rule requires, as a sentence.
+        count: How many times the report breaks it.
+        examples: Up to five locations, such as ``report.xbrl#f12``.
+    """
+
+    rule: str
+    code: str
+    severity: Severity
+    message: str
+    count: int = 1
+    examples: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class Report:
     """One regulatory report read from xBRL-CSV or XBRL-XML.
 
@@ -83,6 +107,8 @@ class Report:
         facts: Reported facts in source order.
         namespaces: Prefix to namespace URI.
         warnings: Non-fatal findings in deterministic order.
+        filing: EBA filing rules the report breaks that the file alone
+            shows (see :mod:`xbrlreport.filing`), in rule order.
     """
 
     format: ReportFormat
@@ -97,6 +123,7 @@ class Report:
     facts: tuple[Fact, ...]
     namespaces: Mapping[str, str]
     warnings: tuple[str, ...] = ()
+    filing: tuple[FilingFinding, ...] = ()
 
     def facts_for_template(self, code: str) -> tuple[Fact, ...]:
         """Select facts reported in one xBRL-CSV table template.

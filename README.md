@@ -31,7 +31,8 @@ dataclasses:
   `instance.xbrl#f12` with the fact id, `#factN` for the Nth fact without id).
 - `Report`: `format`, `entry_point`, `entity_scheme`, `entity_id`,
   `reference_date`, `base_currency`, `parameters`, `decimals_parameters`,
-  `filing_indicators`, `facts`, `namespaces` and `warnings`.
+  `filing_indicators`, `facts`, `namespaces`, `warnings` and `filing` (the
+  EBA filing rules the report breaks, see below).
 
 `Report.facts_for_template(code)` compares template codes case-insensitively,
 so filing-indicator codes such as `C_01.00` select facts from `c_01.00.csv`.
@@ -142,6 +143,57 @@ also applies to XML instances and to files read from taxonomy packages. CSV
 rows are streamed with the `csv` module (`utf-8-sig`), including from ZIPs.
 An entry whose compressed data is damaged raises `ReportError` naming the entry.
 
+### EBA filing rules
+
+Both readers record the [EBA Filing Rules](https://www.eba.europa.eu/sites/default/files/2026-02/10436139-46ae-4a7d-880f-c399ba6de669/EBA%20Filing%20Rules%20v5.8_2026_02_25.pdf)
+(version 5.8, February 2026) that a report breaks and that the file alone can show, in
+`Report.filing`: one `FilingFinding` per rule and problem, with the rule's
+number (`2.19`), its tag in the EBA document (`nilUsed`), a severity, a
+message, how many times it occurs and up to five locations.
+`xbrlreport.filing.RULE_TITLES` names each rule. Severity is `error` where the
+rule says MUST (EBA rejects the report) and `warning` where it says SHOULD;
+file-naming findings are warnings because each supervisor confirms its own
+naming.
+
+- Both formats: one absolute taxonomy entry point (1.5, 2.2, 2.3); the
+  reporting subject's scheme, suffix, upper case and LEI check digits (2.8,
+  3.6); and the file name against `ReportSubject_Country_
+  FrameworkCodeModuleVersion_Module_ReferenceDate_CreationTimestamp`,
+  including the reporting subject, module and reference date.
+- XBRL-XML: UTF-8 and no standalone declaration (1.4, 1.13); filing
+  indicators present, unique and in a context without segment or scenario
+  (1.6, 1.6.1); no `xsi:schemaLocation`, XInclude, `xml:base`,
+  `link:linkbaseRef`, footnotes, segments, forever or duration periods, or
+  non-dimensional scenario content (1.14, 1.15, 2.1, 2.4, 2.25, 2.11, 2.13, 2.14,
+  2.15); one entity and reference date, as plain dates (2.9, 2.10, 2.13); no
+  duplicate facts, and none differing only by unit (2.16, 2.16.1); `decimals`
+  rather than `precision`, and present on numeric facts (2.17, 2.18); no nil or
+  empty facts (2.19); unused or repeated contexts and units (2.7, 2.21, 2.22);
+  one reporting currency, and currency-of-denomination facts in the currency
+  their CUS or CUA member names (3.1); `xbrli:pure` for other numeric facts
+  (3.2); and namespace prefixes declared once, on the document element, and
+  used (3.4, 3.9, 3.10); text without leading or trailing spaces (3.11).
+- xBRL-CSV: `META-INF/reportPackage.json`, `parameters.csv` with
+  `refPeriod`, and `FilingIndicators.csv`; the root folder named as the ZIP;
+  no `documentInfo.taxonomy` (1.5); a plain-date `refPeriod` (2.10); unique
+  filing indicators (1.6.1); no table file for a template indicated as not
+  reported (xBRL-CSV rule 6); no special values in fact or key columns
+  (`#nil`, `#empty` and any other value starting with `#`; 2.19 and rule 5);
+  no decimals suffix (rule 1); values without leading or trailing spaces
+  (3.11).
+
+Rules that need the taxonomy are left to the caller, which can build
+`FilingFinding`s and merge them with `xbrlreport.filing.FilingLog`: a filing
+indicator for every template of the module and only valid codes (1.6, 1.6.3),
+facts outside the reported templates (1.7.1), minimum decimals per data type
+(2.18), an entry point valid for the reference date (1.5), and
+`baseCurrency` when monetary facts use it. Not checked: units against the
+XBRL unit registry (2.23), decimal notation for rates (3.2), canonical
+prefixes (3.5), generating-software information (2.26) and comments (2.5).
+`read_xbrl_csv_frames` checks special fact values only; the decimals suffix,
+spaces and special key values are left to callers that split values by data
+type.
+
 ## Writing
 
 ```python
@@ -181,8 +233,8 @@ xbrl-report convert IN OUT [--taxonomy-package ZIP ...]
 ```
 
 `inspect` prints the format, entry point, entity, reference date, base
-currency, filing indicators (reported of total), the fact count per template
-and the warnings. `convert` chooses the output format from the suffix: `.zip`
+currency, filing indicators (reported of total), the fact count per template,
+the warnings and the EBA filing rules the report breaks. `convert` chooses the output format from the suffix: `.zip`
 writes xBRL-CSV, `.xbrl` or `.xml` writes XBRL-XML. Errors print `error: ...`
 and exit with status 1.
 

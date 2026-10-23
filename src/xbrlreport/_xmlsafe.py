@@ -11,11 +11,14 @@ _CHUNK = 64 * 1024
 _MAX_PROLOG = 1024 * 1024
 
 
-def check_prolog(read: Callable[[int], bytes], label: str) -> None:
+def check_prolog(read: Callable[[int], bytes], label: str) -> bytes:
     """Reject an XML document whose prolog declares a DOCTYPE or ENTITY.
 
     DOCTYPE (and with it any ENTITY declaration) may only occur in the
     prolog, so scanning up to the first start tag is sufficient.
+
+    Returns:
+        bytes: The start of the document, its prolog included.
 
     Raises:
         ReportError: If the prolog contains a declaration or is too long.
@@ -30,7 +33,7 @@ def check_prolog(read: Callable[[int], bytes], label: str) -> None:
                 f"{label}: DOCTYPE and ENTITY declarations are not allowed"
             )
         if verdict == "ok" or not chunk:
-            return
+            return head
         if len(head) > _MAX_PROLOG:
             raise ReportError(f"{label}: XML prolog exceeds {_MAX_PROLOG} bytes")
 
