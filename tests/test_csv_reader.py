@@ -310,7 +310,7 @@ def test_physical_line_numbers_follow_multiline_cells(tmp_path: Path) -> None:
     ]
 
 
-def test_entity_prefix_without_namespace_is_kept_as_scheme(tmp_path: Path) -> None:
+def test_eba_entity_prefixes_resolve_without_a_namespace(tmp_path: Path) -> None:
     files = closed_files(
         **{
             "reports/parameters.csv": csv_text(
@@ -321,7 +321,10 @@ def test_entity_prefix_without_namespace_is_kept_as_scheme(tmp_path: Path) -> No
     )
     report = read_report(write_zip(tmp_path / "r.zip", files))
 
-    assert (report.entity_scheme, report.entity_id) == ("rs", "ABC.CON")
+    assert (report.entity_scheme, report.entity_id) == (
+        "https://eurofiling.info/eu/rs",
+        "ABC.CON",
+    )
     assert report.base_currency is None
     assert report.filing_indicators == {}
     assert "no FilingIndicators.csv in the report package" in report.warnings

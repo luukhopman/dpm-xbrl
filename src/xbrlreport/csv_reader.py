@@ -45,6 +45,12 @@ _DRAFT_DOCUMENT_TYPE = re.compile(
 _REPORT_JSON = re.compile(r"^(?:[^/]+/)?reports/[^/]+\.json$")
 _NCNAME = re.compile(r"^[A-Za-z_][\w.\-]*$")
 _IGNORED_CORE_DIMENSIONS = frozenset({"period", "entity", "language", "noteId"})
+# The EBA's JSON entry points bind these prefixes for entityID (filing rule
+# 3.6); they apply when the entry point cannot be read offline.
+_ENTITY_SCHEMES = {
+    "lei": "http://standards.iso.org/iso/17442",
+    "rs": "https://eurofiling.info/eu/rs",
+}
 
 MetadataResolver = Callable[[str], bytes | None]
 _Ref = tuple[str, str]
@@ -482,7 +488,8 @@ class _CsvReportReader:
         prefix, separator, identifier = value.partition(":")
         if not separator:
             return None, value
-        return self._namespaces.get(prefix, prefix), identifier
+        scheme = self._namespaces.get(prefix) or _ENTITY_SCHEMES.get(prefix, prefix)
+        return scheme, identifier
 
     def _reference_date(self, lines: Mapping[str, str], label: str) -> date | None:
         value = self._parameters.get("refPeriod")
