@@ -10,6 +10,7 @@ from tests.support import csv_text, open_files, report_json, write_zip
 from xbrlreport import Report, read_report
 from xbrlreport.filing import (
     RULE_TITLES,
+    FilingFinding,
     FilingLog,
     check_file_name,
     check_subject,
@@ -381,6 +382,61 @@ def test_enumerated_fact_values_count_as_namespace_use() -> None:
         '<xbrli:xbrl xmlns:eba_ZZ="http://www.eba.europa.eu/xbrl/crr/dict/dom/ZZ" ',
     ).replace(CLOSE, '<eba_met:ei1 contextRef="c1">eba_ZZ:x840</eba_met:ei1>' + CLOSE)
     assert ("3.4", "unusedNamespacePrefix") not in _read_xml(xml)
+
+
+def _xml_finding(xml: str, code: str) -> FilingFinding:
+    report = read_report(xml.encode(), name="i.xbrl")
+    return next(item for item in report.filing if item.code == code)
+
+
+@pytest.mark.parametrize(
+    ("change", "code", "example"),
+    [
+        pytest.param(
+            _insert(
+                _context("c3")
+                + '<eba_met:mi4 contextRef="c3" unitRef="EUR" decimals="0">1'
+                "</eba_met:mi4>"
+            ),
+            "duplicateContext",
+            "i.xbrl: context c3 duplicates context c1",
+            id="context",
+        ),
+        pytest.param(
+            _insert(
+                '<xbrli:unit id="EUR2"><xbrli:measure>iso4217:EUR</xbrli:measure>'
+                '</xbrli:unit><eba_met:mi4 contextRef="c1" unitRef="EUR2" '
+                'decimals="0">1</eba_met:mi4>'
+            ),
+            "duplicateUnit",
+            "i.xbrl: unit EUR2 duplicates unit EUR",
+            id="unit",
+        ),
+        pytest.param(
+            _insert(
+                '<eba_met:mi1 contextRef="c1" unitRef="EUR" decimals="-3">1000'
+                "</eba_met:mi1>"
+            ),
+            "duplicateFactXBRL-XML",
+            "i.xbrl#fact5 duplicates i.xbrl#fact1",
+            id="fact",
+        ),
+    ],
+)
+def test_duplicate_examples_name_what_they_duplicate(
+    change: Callable[[str], str], code: str, example: str
+) -> None:
+    assert _xml_finding(change(CLEAN_XML), code).examples == (example,)
+
+
+def test_each_unused_prefix_is_its_own_example() -> None:
+    xml = CLEAN_XML.replace(
+        "<xbrli:xbrl ",
+        '<xbrli:xbrl xmlns:a="http://a" xmlns:b="http://b" xmlns:c="http://c" ',
+    )
+    unused = _xml_finding(xml, "unusedNamespacePrefix")
+    assert unused.count == 3
+    assert unused.examples == ("i.xbrl: a", "i.xbrl: b", "i.xbrl: c")
 
 
 def test_findings_count_repeats_and_keep_five_examples() -> None:

@@ -599,7 +599,7 @@ class _InstanceReader:
                 "duplicateContext",
                 "warning",
                 "The report should not repeat a context with the same content.",
-                f"{self._label}#{context_id} repeats {known[1]}",
+                f"{self._label}: context {context_id} duplicates context {known[1]}",
             )
         self._contexts[context_id] = _Context(
             builder.scheme,
@@ -705,7 +705,7 @@ class _InstanceReader:
                 "duplicateUnit",
                 "warning",
                 "The report should not repeat a unit with the same measures.",
-                f"{self._label}#{unit_id} repeats {repeated}",
+                f"{self._label}: unit {unit_id} duplicates unit {repeated}",
             )
         self._units[unit_id] = _Unit(text, currency, pure)
 
@@ -907,7 +907,7 @@ class _InstanceReader:
                 "duplicateFactXBRL-XML",
                 "error",
                 "The report must not report the same fact twice.",
-                f"{raw.location} repeats {first[1]}",
+                f"{raw.location} duplicates {first[1]}",
             )
         else:
             self._filing.add(
@@ -915,7 +915,7 @@ class _InstanceReader:
                 "factsDifferingOnlyByUnit",
                 "error",
                 "The report must not report one fact in several units.",
-                f"{raw.location} repeats {first[1]} in {unit}",
+                f"{raw.location} duplicates {first[1]} in {unit}",
             )
 
     def _check_currencies(
@@ -1035,14 +1035,13 @@ class _InstanceReader:
             for prefix, uri in self._root_prefixes.items()
             if uri not in self._used
         )
-        if unused:
+        for prefix in unused:
             self._filing.add(
                 "3.4",
                 "unusedNamespacePrefix",
                 "warning",
                 "The report should not declare namespace prefixes it does not use.",
-                f"{self._label}: {', '.join(unused)}",
-                count=len(unused),
+                f"{self._label}: {prefix}",
             )
         for uri, prefixes in self._declared.items():
             if len(prefixes) > 1:
