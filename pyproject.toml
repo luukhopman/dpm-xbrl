@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "dpm-xbrl"
-version = "0.1.0"
+version = "0.1.1"
 description = "Read and write EBA-style xBRL-CSV and XBRL-XML regulatory reports (DPM taxonomies)"
 readme = "README.md"
 license = "MIT"
