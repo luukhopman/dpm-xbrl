@@ -287,7 +287,10 @@ class _InstanceReader:
                     continue
                 element: ET.Element = item  # type: ignore[assignment]
                 if event == "start":
-                    self._scopes.append({**self._scopes[-1], **pending})
+                    # Scopes are never changed once made: an element that
+                    # declares nothing shares its parent's.
+                    scope = self._scopes[-1]
+                    self._scopes.append({**scope, **pending} if pending else scope)
                     if element.tag not in tags:
                         self._new_tag(element)
                     # Namespaced attributes sit on the document element and
