@@ -30,14 +30,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ._taxonomy import TaxonomyPackages
-from .csv_reader import (
-    _EMPTY,
-    _NIL,
-    _SPECIAL,
-    MetadataResolver,
-    _CsvReportReader,
-    _open_package,
-)
+from .csv_reader import MetadataResolver, _CsvReportReader, _open_package
+from .filing import EMPTY_VALUE, NIL_VALUE, SPECIAL_VALUE
 from .model import Limits, Report, ReportError
 
 if TYPE_CHECKING:
@@ -194,9 +188,9 @@ class _FrameReader(_CsvReportReader):
         special = value.str.starts_with("#") & ~value.str.starts_with("##")
         if frame.select(special.any()).item():
             for finding, mask in (
-                (_NIL, value == "#nil"),
-                (_EMPTY, value == "#empty"),
-                (_SPECIAL, special & ~value.is_in(["#nil", "#empty"])),
+                (NIL_VALUE, value == "#nil"),
+                (EMPTY_VALUE, value == "#empty"),
+                (SPECIAL_VALUE, special & ~value.is_in(["#nil", "#empty"])),
             ):
                 rows = frame.select(pl.arg_where(mask)).to_series()
                 # Data rows start on line 2, after the header.

@@ -30,7 +30,19 @@ from ._package import (
 )
 from ._taxonomy import TaxonomyPackages
 from ._util import WarningLog, load_json_object
-from .filing import FilingLog, check_entry_point, check_file_name, check_subject
+from .filing import (
+    DECIMALS_SUFFIX,
+    EMPTY_VALUE,
+    KEY_SPACES,
+    NIL_VALUE,
+    SPACES,
+    SPECIAL_KEY_VALUE,
+    SPECIAL_VALUE,
+    FilingLog,
+    check_entry_point,
+    check_file_name,
+    check_subject,
+)
 from .model import Fact, Limits, Report, ReportError
 
 XBRL_CSV_DOCUMENT_TYPE = "https://xbrl.org/2021/xbrl-csv"
@@ -57,46 +69,6 @@ _DECIMALS_SUFFIX = re.compile(r"[-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?d(?:[-+]?[0-9]+|
 """A value with the xBRL-CSV decimals suffix, such as ``78920030d-4``."""
 _TABLE_SUFFIX = re.compile(r"(\.[a-z])+$", re.IGNORECASE)
 """Letter suffixes of a table code that its filing indicator omits."""
-
-# Findings on fact and key values, shared with the columnar reader.
-_NIL = (
-    "2.19",
-    "nilUsed",
-    "error",
-    "Facts must not be reported as #nil; leave out a fact that is not reported.",
-)
-_EMPTY = (
-    "2.19",
-    "emptyUsed",
-    "error",
-    "Facts must not be reported as #empty; such values were skipped.",
-)
-_SPECIAL = (
-    "xBRL-CSV 5",
-    "specialValueUsed",
-    "error",
-    "Fact values must not use special values starting with # (#none, #empty, "
-    "#nil or others).",
-)
-_SPECIAL_KEY = (
-    "xBRL-CSV 5",
-    "specialKeyValueUsed",
-    "error",
-    "Key columns must not use special values starting with #.",
-)
-_DECIMALS_SUFFIX_USED = (
-    "xBRL-CSV 1",
-    "decimalsSuffixUsed",
-    "error",
-    "Fact values must not use the decimals suffix (such as 78920030d-4); "
-    "decimals belong in parameters.csv.",
-)
-_SPACES = (
-    "3.11",
-    "leadingOrTrailingSpacesInText",
-    "warning",
-    "Fact values should not start or end with spaces or line breaks.",
-)
 
 MetadataResolver = Callable[[str], bytes | None]
 _Ref = tuple[str, str]
@@ -776,24 +748,26 @@ class _CsvReportReader:
             return True, cell[1:]
         if not cell.startswith("#"):
             if cell != cell.strip():
-                self._filing.add(*_SPACES, location)
+                self._filing.add(*SPACES, location)
             elif "d" in cell and _DECIMALS_SUFFIX.fullmatch(cell):
-                self._filing.add(*_DECIMALS_SUFFIX_USED, location)
+                self._filing.add(*DECIMALS_SUFFIX, location)
             return True, cell
         if cell == "#nil":
-            self._filing.add(*_NIL, location)
+            self._filing.add(*NIL_VALUE, location)
             return True, None
         if cell == "#empty":
-            self._filing.add(*_EMPTY, location)
+            self._filing.add(*EMPTY_VALUE, location)
             return False, None
-        self._filing.add(*_SPECIAL, location)
+        self._filing.add(*SPECIAL_VALUE, location)
         return cell != "#none", None if cell == "#none" else cell
 
     def _check_keys(self, keys: Mapping[str, str], location: str) -> None:
-        """Check key column values for special values (xBRL-CSV rule 5)."""
+        """Check key column values for special values and spaces."""
         for value in keys.values():
             if value.startswith("#") and not value.startswith("##"):
-                self._filing.add(*_SPECIAL_KEY, location)
+                self._filing.add(*SPECIAL_KEY_VALUE, location)
+            elif value != value.strip():
+                self._filing.add(*KEY_SPACES, location)
 
     def _emit(self, fact: Fact, key: tuple[Any, ...], display: str) -> None:
         if key in self._seen:

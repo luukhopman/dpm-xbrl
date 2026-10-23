@@ -510,6 +510,15 @@ CSV_CASES: list[tuple[str, dict[str, str | None], tuple[str, str]]] = [
         ("xBRL-CSV 5", "specialValueUsed"),
     ),
     (
+        "spaces around a key value",
+        {
+            "reports/c_27.00.csv": csv_text(
+                "datapoint,factValue,c0010,c0020", "dp100,ABC,cp1 ,eba_qCO:qx2000"
+            )
+        },
+        ("3.11", "leadingOrTrailingSpacesInText"),
+    ),
+    (
         "special key value",
         {
             "reports/c_27.00.csv": csv_text(

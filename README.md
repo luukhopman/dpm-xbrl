@@ -192,7 +192,8 @@ XBRL unit registry (2.23), decimal notation for rates (3.2), canonical
 prefixes (3.5), generating-software information (2.26) and comments (2.5).
 `read_xbrl_csv_frames` checks special fact values only; the decimals suffix,
 spaces and special key values are left to callers that split values by data
-type.
+type, which can record them with the same messages (`DECIMALS_SUFFIX`,
+`SPACES`, `KEY_SPACES`, `SPECIAL_KEY_VALUE` in `xbrlreport.filing`).
 
 ## Writing
 

@@ -62,6 +62,7 @@ RULE_TITLES: dict[str, str] = {
     "Package": "xBRL-CSV report package",
     "File naming": "File naming",
     "xBRL-CSV 1": "Decimals suffix",
+    "xBRL-CSV 2": "Header row",
     "xBRL-CSV 4": "Key column values",
     "xBRL-CSV 5": "Special values",
     "xBRL-CSV 6": "Tables of templates not reported",
@@ -71,6 +72,57 @@ RULE_TITLES: dict[str, str] = {
 Numbered rules come from sections 1 to 3. ``Package`` and ``File naming``
 are the requirements in "File naming structure for remittance to the EBA";
 ``xBRL-CSV n`` are the numbered "xBRL-CSV reports extra rules"."""
+
+Rule = tuple[str, str, Severity, str]
+"""A finding's rule number, tag, severity and message, for :meth:`FilingLog.add`."""
+
+# Findings on xBRL-CSV fact and key values, made by the readers here and by
+# callers that check values the columnar reader leaves to them.
+NIL_VALUE: Rule = (
+    "2.19",
+    "nilUsed",
+    "error",
+    "Facts must not be reported as #nil; leave out a fact that is not reported.",
+)
+EMPTY_VALUE: Rule = (
+    "2.19",
+    "emptyUsed",
+    "error",
+    "Facts must not be reported as #empty; such values were skipped.",
+)
+SPECIAL_VALUE: Rule = (
+    "xBRL-CSV 5",
+    "specialValueUsed",
+    "error",
+    "Fact values must not use special values starting with # (#none, #empty, "
+    "#nil or others).",
+)
+SPECIAL_KEY_VALUE: Rule = (
+    "xBRL-CSV 5",
+    "specialKeyValueUsed",
+    "error",
+    "Key columns must not use special values starting with #.",
+)
+DECIMALS_SUFFIX: Rule = (
+    "xBRL-CSV 1",
+    "decimalsSuffixUsed",
+    "error",
+    "Fact values must not use the decimals suffix (such as 78920030d-4); "
+    "decimals belong in parameters.csv.",
+)
+SPACES: Rule = (
+    "3.11",
+    "leadingOrTrailingSpacesInText",
+    "warning",
+    "Fact values should not start or end with spaces or line breaks.",
+)
+KEY_SPACES: Rule = (
+    "3.11",
+    "leadingOrTrailingSpacesInText",
+    "warning",
+    "Key values should not start or end with spaces or line breaks.",
+)
+
 
 _EXAMPLES = 5
 _LEI_SCHEME = "http://standards.iso.org/iso/17442"
@@ -398,9 +450,17 @@ def check_entry_point(
 
 
 __all__ = [
+    "DECIMALS_SUFFIX",
+    "EMPTY_VALUE",
+    "KEY_SPACES",
+    "NIL_VALUE",
     "RULE_TITLES",
+    "SPACES",
+    "SPECIAL_KEY_VALUE",
+    "SPECIAL_VALUE",
     "FilingFinding",
     "FilingLog",
+    "Rule",
     "Severity",
     "check_entry_point",
     "check_file_name",
