@@ -790,6 +790,21 @@ def test_file_name(name: str, problem: str | None) -> None:
         assert len(messages) == 1 and problem in messages[0], messages
 
 
+def test_a_location_is_kept_once_per_finding() -> None:
+    log = FilingLog()
+    for location in ["a", "b", "a", "c"]:
+        log.add("2.19", "nilUsed", "error", "m", location)
+    log.extend(
+        [
+            FilingFinding("2.19", "nilUsed", "error", "m", 3, ("c", "d", "b")),
+            FilingFinding("2.7", "unusedContext", "warning", "n", 2, ("x", "x")),
+        ]
+    )
+    unused, nil = log.result()
+    assert (nil.count, nil.examples) == (7, ("a", "b", "c", "d"))
+    assert (unused.count, unused.examples) == (2, ("x",))
+
+
 def test_findings_sort_in_document_order() -> None:
     log = FilingLog()
     for rule in ["File naming", "xBRL-CSV 5", "3.1", "2.16.1", "2.16", "1.10", "1.6"]:

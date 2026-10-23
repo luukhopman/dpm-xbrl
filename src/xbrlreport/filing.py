@@ -171,7 +171,10 @@ class FilingLog:
         *,
         count: int = 1,
     ) -> None:
-        """Record ``count`` occurrences of a finding, keeping a few locations."""
+        """Record ``count`` occurrences of a finding, keeping a few locations.
+
+        A location already kept for the finding is not kept again.
+        """
         if count <= 0:
             return
         entry = self._found.get((rule, code, message))
@@ -179,23 +182,22 @@ class FilingLog:
             entry = self._found[rule, code, message] = (severity, [], [0])
         _, examples, total = entry
         total[0] += count
-        if location is not None and len(examples) < _EXAMPLES:
-            examples.append(location)
+        if location is not None:
+            _keep(examples, (location,))
 
     def extend(self, findings: Iterable[FilingFinding]) -> None:
-        """Record findings made elsewhere."""
+        """Record findings made elsewhere, keeping each location once."""
         for finding in findings:
             entry = self._found.get((finding.rule, finding.code, finding.message))
             if entry is None:
-                self._found[finding.rule, finding.code, finding.message] = (
+                entry = self._found[finding.rule, finding.code, finding.message] = (
                     finding.severity,
-                    list(finding.examples[:_EXAMPLES]),
-                    [finding.count],
+                    [],
+                    [0],
                 )
-                continue
             _, examples, total = entry
             total[0] += finding.count
-            examples.extend(finding.examples[: _EXAMPLES - len(examples)])
+            _keep(examples, finding.examples)
 
     def result(self) -> tuple[FilingFinding, ...]:
         """Return the findings in rule order.
@@ -211,6 +213,15 @@ class FilingLog:
                 total,
             ) in self._found.items()
         )
+
+
+def _keep(examples: list[str], locations: Iterable[str]) -> None:
+    """Append new locations to a finding's examples, up to the limit."""
+    for location in locations:
+        if len(examples) >= _EXAMPLES:
+            return
+        if location not in examples:
+            examples.append(location)
 
 
 def sort_findings(findings: Iterable[FilingFinding]) -> tuple[FilingFinding, ...]:
