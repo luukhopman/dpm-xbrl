@@ -231,8 +231,9 @@ def check_subject(report: Report, log: FilingLog) -> None:
 
     The EBA prescribes two schemes: the LEI scheme for a bare LEI, and the
     reporting-subject scheme for an identifier with a suffix such as
-    ``.CON``. Reports from 31 December 2022 onwards use a suffix unless
-    their module name ends in ``_con`` or ``_ind``.
+    ``.CON``. Reports from 31 December 2022 onwards must use a suffix
+    unless their module name ends in ``_con`` or ``_ind``. A suffix the
+    EBA does not list is a warning: other codes are agreed with the EBA.
     """
     scheme, identifier = report.entity_scheme, report.entity_id
     if not identifier:
@@ -277,13 +278,23 @@ def check_subject(report: Report, log: FilingLog) -> None:
             )
         _check_lei(base, identifier, where, log)
     elif scheme == _REPORTING_SUBJECT_SCHEME:
-        if suffix not in _ENTITY_SUFFIXES | _AGGREGATE_SUFFIXES:
+        if not suffix:
             log.add(
                 "3.6",
                 "inappropriateScheme",
                 "error",
                 f"The reporting subject {identifier} has no suffix such as .CON or "
                 f".IND, so its scheme must be the LEI scheme {_LEI_SCHEME}.",
+                where,
+            )
+        elif suffix not in _ENTITY_SUFFIXES | _AGGREGATE_SUFFIXES:
+            log.add(
+                "3.6",
+                "unrecognizedReportingSubjectSuffix",
+                "warning",
+                f"The suffix .{suffix} of the reporting subject {identifier} is not "
+                "one the EBA lists; other codes must be agreed with and "
+                "preregistered by the EBA.",
                 where,
             )
         elif suffix in _ENTITY_SUFFIXES and "-" not in base:
@@ -310,8 +321,8 @@ def check_subject(report: Report, log: FilingLog) -> None:
         log.add(
             "3.6",
             "missingReportingSubjectSuffix",
-            "warning",
-            "From 31 December 2022 the reporting subject should end in .IND, .CON "
+            "error",
+            "From 31 December 2022 the reporting subject must end in .IND, .CON "
             "or another suffix, with the reporting-subject scheme.",
             where,
         )

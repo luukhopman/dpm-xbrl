@@ -670,7 +670,7 @@ def _subject(report: Report) -> set[tuple[str, str, str]]:
         pytest.param(_report(RS, "IT000.MEMSTAAGGALL"), set(), id="aggregate"),
         pytest.param(
             _report(LEI_SCHEME, LEI),
-            {("3.6", "missingReportingSubjectSuffix", "warning")},
+            {("3.6", "missingReportingSubjectSuffix", "error")},
             id="bare LEI after 2022",
         ),
         pytest.param(
@@ -687,6 +687,11 @@ def _subject(report: Report) -> set[tuple[str, str, str]]:
             _report(RS, LEI),
             {("3.6", "inappropriateScheme", "error")},
             id="rs without a suffix",
+        ),
+        pytest.param(
+            _report(RS, f"{LEI}.SUBCON"),
+            {("3.6", "unrecognizedReportingSubjectSuffix", "warning")},
+            id="rs with an unlisted suffix",
         ),
         pytest.param(
             _report(
@@ -719,6 +724,15 @@ def _subject(report: Report) -> set[tuple[str, str, str]]:
 )
 def test_reporting_subject(report: Report, expected: set[tuple[str, str, str]]) -> None:
     assert _subject(report) == expected
+
+
+def test_an_unlisted_suffix_is_named_and_left_to_the_eba() -> None:
+    log = FilingLog()
+    check_subject(_report(RS, f"{LEI}.SUBCON"), log)
+    (finding,) = log.result()
+    assert ".SUBCON" in finding.message
+    assert "preregistered" in finding.message
+    assert "no suffix" not in finding.message
 
 
 def test_lei_check_digits_follow_iso_7064() -> None:
