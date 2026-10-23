@@ -23,10 +23,17 @@ def detect_format(source: str | os.PathLike[str] | bytes) -> str:
         str: ``"xbrl-csv"`` or ``"xbrl-xml"``.
 
     Raises:
-        ReportError: If a path does not exist.
+        ReportError: If a path does not exist, or if a ``.zip`` file or one
+            starting like a ZIP archive cannot be read as one (it is
+            incomplete or damaged; reading it as XML would only report
+            malformed XML).
     """
     if isinstance(source, bytes):
-        return "xbrl-csv" if zipfile.is_zipfile(io.BytesIO(source)) else "xbrl-xml"
+        if zipfile.is_zipfile(io.BytesIO(source)):
+            return "xbrl-csv"
+        if source.startswith(_ZIP_SIGNATURE):
+            raise ReportError(_DAMAGED_ZIP.format(name="the report"))
+        return "xbrl-xml"
     path = Path(source).expanduser()
     if path.is_dir():
         return "xbrl-csv"
@@ -34,7 +41,15 @@ def detect_format(source: str | os.PathLike[str] | bytes) -> str:
         raise ReportError(f"{path}: no such file or directory")
     if path.suffix.casefold() == ".json" or zipfile.is_zipfile(path):
         return "xbrl-csv"
+    with path.open("rb") as handle:
+        zip_like = handle.read(len(_ZIP_SIGNATURE)) == _ZIP_SIGNATURE
+    if zip_like or path.suffix.casefold() == ".zip":
+        raise ReportError(_DAMAGED_ZIP.format(name=path.name))
     return "xbrl-xml"
+
+
+_ZIP_SIGNATURE = b"PK"
+_DAMAGED_ZIP = "{name} is not a readable ZIP archive: it may be incomplete or damaged"
 
 
 def read_report(

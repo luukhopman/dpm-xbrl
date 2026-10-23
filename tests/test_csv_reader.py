@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from datetime import date
 from pathlib import Path
 from zipfile import ZipFile, ZipInfo
@@ -102,6 +103,23 @@ def test_zip_bytes_directory_and_wrapped_root_agree(tmp_path: Path) -> None:
     assert from_json.facts[0].location == "c_01.00.csv:2"
     assert from_json.facts[0].value == from_dir.facts[0].value
     assert detect_format(directory) == "xbrl-csv"
+
+
+def test_a_damaged_zip_is_not_read_as_xml(tmp_path: Path) -> None:
+    whole = zip_bytes(closed_files())
+    truncated = tmp_path / "report.zip"
+    truncated.write_bytes(whole[: len(whole) // 2])
+    not_zip = tmp_path / "notes.zip"
+    not_zip.write_bytes(b"hello")
+    renamed = tmp_path / "report.xbrl"
+    renamed.write_bytes(whole[: len(whole) // 2])
+
+    for path in (truncated, not_zip, renamed):
+        message = f"^{re.escape(path.name)} is not a readable ZIP"
+        with pytest.raises(ReportError, match=message):
+            detect_format(path)
+    with pytest.raises(ReportError, match=r"^the report is not a readable ZIP"):
+        detect_format(whole[: len(whole) // 2])
 
 
 def test_directory_with_bare_report_json(tmp_path: Path) -> None:
