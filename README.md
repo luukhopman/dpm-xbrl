@@ -172,28 +172,30 @@ naming.
   one reporting currency, and currency-of-denomination facts in the currency
   their CUS or CUA member names (3.1); `xbrli:pure` for other numeric facts
   (3.2); and namespace prefixes declared once, on the document element, and
-  used (3.4, 3.9, 3.10); text without leading or trailing spaces (3.11).
+  used (3.4, 3.9, 3.10).
 - xBRL-CSV: `META-INF/reportPackage.json`, `parameters.csv` with
   `refPeriod`, and `FilingIndicators.csv`; the root folder named as the ZIP;
   no `documentInfo.taxonomy` (1.5); a plain-date `refPeriod` (2.10); unique
   filing indicators (1.6.1); no table file for a template indicated as not
   reported (xBRL-CSV rule 6); no special values in fact or key columns
   (`#nil`, `#empty` and any other value starting with `#`; 2.19 and rule 5);
-  no decimals suffix (rule 1); values without leading or trailing spaces
+  no decimals suffix (rule 1); key values without leading or trailing spaces
   (3.11).
 
 Rules that need the taxonomy are left to the caller, which can build
 `FilingFinding`s and merge them with `xbrlreport.filing.FilingLog`: a filing
 indicator for every template of the module and only valid codes (1.6, 1.6.3),
 facts outside the reported templates (1.7.1), minimum decimals per data type
-(2.18), an entry point valid for the reference date (1.5), and
-`baseCurrency` when monetary facts use it. Not checked: units against the
-XBRL unit registry (2.23), decimal notation for rates (3.2), canonical
-prefixes (3.5), generating-software information (2.26) and comments (2.5).
+(2.18), fact values without leading or trailing spaces, which applies to
+string data points only (3.11, `SPACES` in `xbrlreport.filing`), an entry
+point valid for the reference date (1.5), and `baseCurrency` when monetary
+facts use it. Not checked: units against the XBRL unit registry (2.23),
+decimal notation for rates (3.2), canonical prefixes (3.5),
+generating-software information (2.26) and comments (2.5).
 `read_xbrl_csv_frames` checks special fact values only; the decimals suffix,
-spaces and special key values are left to callers that split values by data
-type, which can record them with the same messages (`DECIMALS_SUFFIX`,
-`SPACES`, `KEY_SPACES`, `SPECIAL_KEY_VALUE` in `xbrlreport.filing`).
+spaces around key values and special key values are left to callers that
+split values by data type, which can record them with the same messages
+(`DECIMALS_SUFFIX`, `KEY_SPACES`, `SPECIAL_KEY_VALUE` in `xbrlreport.filing`).
 
 ## Writing
 

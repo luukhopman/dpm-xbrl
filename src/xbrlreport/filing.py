@@ -116,6 +116,10 @@ SPACES: Rule = (
     "warning",
     "Fact values should not start or end with spaces or line breaks.",
 )
+"""Rule 3.11 for fact values, which applies to string data points only.
+
+The readers do not know data types, so they leave this check to callers
+that do; they check key values (:data:`KEY_SPACES`) themselves."""
 KEY_SPACES: Rule = (
     "3.11",
     "leadingOrTrailingSpacesInText",

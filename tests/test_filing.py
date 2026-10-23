@@ -268,11 +268,6 @@ XML_CASES: list[tuple[str, Callable[[str], str], tuple[str, str]]] = [
         ("2.19", "emptyUsed"),
     ),
     (
-        "spaces around text",
-        _swap(">Text<", "> Text <"),
-        ("3.11", "leadingOrTrailingSpacesInText"),
-    ),
-    (
         "no decimals",
         _swap(' decimals="4">0.25', ">0.25"),
         ("2.18", "missingDecimalsAttribute"),
@@ -439,6 +434,11 @@ def test_each_unused_prefix_is_its_own_example() -> None:
     assert unused.examples == ("i.xbrl: a", "i.xbrl: b", "i.xbrl: c")
 
 
+def test_spaces_around_xml_fact_values_are_left_to_callers() -> None:
+    # Rule 3.11 applies to string data points, which only the taxonomy knows.
+    assert _read_xml(CLEAN_XML.replace(">Text<", "> Text <")) == set()
+
+
 def test_findings_count_repeats_and_keep_five_examples() -> None:
     facts = "".join(
         f'<eba_met:n{index} xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
@@ -569,9 +569,9 @@ CSV_CASES: list[tuple[str, dict[str, str | None], tuple[str, str]]] = [
         ("xBRL-CSV 1", "decimalsSuffixUsed"),
     ),
     (
-        "spaces around a value",
-        {"reports/c_01.00.csv": csv_text("datapoint,factValue", "dp1, text")},
-        ("3.11", "leadingOrTrailingSpacesInText"),
+        "decimals suffix after a space",
+        {"reports/c_01.00.csv": csv_text("datapoint,factValue", "dp1, 1000d-3")},
+        ("xBRL-CSV 1", "decimalsSuffixUsed"),
     ),
     (
         "#none value",
@@ -607,6 +607,13 @@ def test_each_csv_filing_rule_is_detected(
     tmp_path: Path, overrides: dict[str, str | None], expected: tuple[str, str]
 ) -> None:
     assert expected in _read_csv(tmp_path, _clean_csv(**overrides))
+
+
+def test_spaces_around_csv_fact_values_are_left_to_callers(tmp_path: Path) -> None:
+    files = _clean_csv(
+        **{"reports/c_01.00.csv": csv_text("datapoint,factValue", "dp1, text ")}
+    )
+    assert _read_csv(tmp_path, files) == set()
 
 
 def test_the_root_folder_is_named_as_the_file(tmp_path: Path) -> None:

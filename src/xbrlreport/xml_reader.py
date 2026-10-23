@@ -763,7 +763,7 @@ class _InstanceReader:
         precision: bool,
         text: str,
     ) -> None:
-        """Check one fact's value and accuracy (rules 2.17 to 2.19, 3.11)."""
+        """Check one fact's value and accuracy (rules 2.17 to 2.19)."""
         if nil:
             self._filing.add(
                 "2.19",
@@ -799,14 +799,6 @@ class _InstanceReader:
                 "emptyUsed",
                 "error",
                 "Text facts must not be empty; leave out a fact that is not reported.",
-                location,
-            )
-        elif text != text.strip():
-            self._filing.add(
-                "3.11",
-                "leadingOrTrailingSpacesInText",
-                "warning",
-                "Text facts should not start or end with spaces or line breaks.",
                 location,
             )
 

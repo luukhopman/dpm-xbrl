@@ -13,7 +13,7 @@ resolved xBRL-CSV metadata are not supported here; use :func:`read_xbrl_csv`.
 
 Filing-rule findings on values are limited to special values (``#nil``,
 ``#empty`` and others). Checks that :func:`read_xbrl_csv` makes on every value
-(the decimals suffix, leading or trailing spaces, special key values) cost a
+(the decimals suffix, spaces around key values, special key values) cost a
 second scan of millions of strings, so they are left to callers that already
 split values by data type and key column.
 """

@@ -35,7 +35,6 @@ from .filing import (
     EMPTY_VALUE,
     KEY_SPACES,
     NIL_VALUE,
-    SPACES,
     SPECIAL_KEY_VALUE,
     SPECIAL_VALUE,
     FilingLog,
@@ -748,9 +747,7 @@ class _CsvReportReader:
         if cell.startswith("##"):
             return True, cell[1:]
         if not cell.startswith("#"):
-            if cell != cell.strip():
-                self._filing.add(*SPACES, location)
-            elif "d" in cell and _DECIMALS_SUFFIX.fullmatch(cell):
+            if "d" in cell and _DECIMALS_SUFFIX.fullmatch(cell.strip()):
                 self._filing.add(*DECIMALS_SUFFIX, location)
             return True, cell
         if cell == "#nil":
