@@ -67,8 +67,9 @@ _ENTITY_SCHEMES = {
 _PLAIN_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _DECIMALS_SUFFIX = re.compile(r"[-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?d(?:[-+]?[0-9]+|INF)")
 """A value with the xBRL-CSV decimals suffix, such as ``78920030d-4``."""
-_TABLE_SUFFIX = re.compile(r"(\.[a-z])+$", re.IGNORECASE)
-"""Letter suffixes of a table code that its filing indicator omits."""
+_LETTER_PART = re.compile(r"\.[a-z](?=\.|$)", re.IGNORECASE)
+"""Single-letter parts of a table code, which its filing indicator omits:
+``c_07.00.a`` is filed as ``C_07.00``, ``f_18.00.a.dp`` as ``F_18.00.dp``."""
 
 MetadataResolver = Callable[[str], bytes | None]
 _Ref = tuple[str, str]
@@ -713,7 +714,7 @@ class _CsvReportReader:
         Returns:
             bool: Whether the template is indicated as not reported.
         """
-        return _TABLE_SUFFIX.sub("", template_id).casefold() in self._negative
+        return _LETTER_PART.sub("", template_id).casefold() in self._negative
 
     def _header(self, rows: Iterator[tuple[int, list[str]]], display: str) -> list[str]:
         first = next(rows, None)

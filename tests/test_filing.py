@@ -495,6 +495,19 @@ CSV_CASES: list[tuple[str, dict[str, str | None], tuple[str, str]]] = [
         ("xBRL-CSV 6", "tableForNegativeFilingIndicator"),
     ),
     (
+        "table inside a template not reported",
+        {
+            "reports/FilingIndicators.csv": csv_text(
+                "templateID,reported",
+                "C_01.00,true",
+                "C_27.00,true",
+                "F_18.00.dp,false",
+            ),
+            "reports/f_18.00.a.dp.csv": csv_text("datapoint,factValue", "dp9,1"),
+        },
+        ("xBRL-CSV 6", "tableForNegativeFilingIndicator"),
+    ),
+    (
         "decimals suffix",
         {"reports/c_01.00.csv": csv_text("datapoint,factValue", "dp1,78920030d-4")},
         ("xBRL-CSV 1", "decimalsSuffixUsed"),
