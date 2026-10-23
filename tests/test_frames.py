@@ -4,6 +4,7 @@ import pytest
 
 pytest.importorskip("polars")
 
+from tests.support import csv_text, open_files, report_json, write_zip
 from xbrlreport import Fact, Report, read_xbrl_csv, write_xbrl_csv
 from xbrlreport.frames import read_xbrl_csv_frames
 
@@ -130,3 +131,53 @@ def test_duplicates_and_special_values_match_the_object_reader(tmp_path) -> None
             ("nilUsed", 2, ("reports/c_01.00.csv:3", "reports/c_27.00.csv:6")),
         ]
     )
+
+
+def test_dropped_rows_name_the_data_rows_removed(tmp_path) -> None:
+    files = open_files(
+        **{
+            "reports/c_01.00.csv": csv_text("datapoint,factValue", "dp1,1", "dp2,2"),
+            "reports/c_27.00.csv": csv_text(
+                "datapoint,factValue,c0010",
+                "dp100,1,A",  # 0
+                "dp100,,B",  # 1: empty value
+                "dp100,#none,C",  # 2
+                "dp100,1,A",  # 3: repeats row 0
+                "dp100,#nil,D",  # 4
+                "dp100,#nil,D",  # 5: repeats row 4
+                "dp100,5,E",  # 6
+            ),
+        }
+    )
+    frames = read_xbrl_csv_frames(write_zip(tmp_path / "report.zip", files))
+    assert frames.dropped_rows == {"c_27.00": (1, 2, 3, 5)}
+    assert frames.tables["c_27.00"]["c0010"].cast(str).to_list() == ["A", "D", "E"]
+    assert (
+        "reports/c_27.00.csv: duplicate facts ignored (1 occurrence, first at "
+        "reports/c_27.00.csv:5)"
+    ) in frames.report.warnings
+    nil = next(item for item in frames.report.filing if item.code == "nilUsed")
+    assert nil.examples == ("reports/c_27.00.csv:6", "reports/c_27.00.csv:7")
+
+
+def test_dropped_rows_continue_across_the_files_of_a_template(tmp_path) -> None:
+    tables = {
+        "a": {"url": "c_27.00.a.csv", "template": "c_27.00"},
+        "b": {"url": "c_27.00.b.csv", "template": "c_27.00"},
+    }
+    files = open_files(
+        **{
+            "reports/report.json": report_json(tables=tables),
+            "reports/c_01.00.csv": csv_text("datapoint,factValue", "dp1,1"),
+            "reports/c_27.00.csv": None,
+            "reports/c_27.00.a.csv": csv_text(
+                "datapoint,factValue,c0010", "dp100,1,A", "dp100,,B"
+            ),
+            "reports/c_27.00.b.csv": csv_text(
+                "datapoint,factValue,c0010", "dp100,2,C", "dp100,2,C", "dp100,3,D"
+            ),
+        }
+    )
+    frames = read_xbrl_csv_frames(write_zip(tmp_path / "report.zip", files))
+    assert frames.dropped_rows == {"c_27.00": (1, 3)}
+    assert frames.tables["c_27.00"]["c0010"].cast(str).to_list() == ["A", "C", "D"]

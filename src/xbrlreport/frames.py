@@ -16,6 +16,12 @@ Filing-rule findings on values are limited to special values (``#nil``,
 (the decimals suffix, spaces around key values, special key values) cost a
 second scan of millions of strings, so they are left to callers that already
 split values by data type and key column.
+
+Rows with no fact (an empty value, ``#empty`` or ``#none``) and exact
+duplicate rows are removed, so a frame's row index is not the row's place in
+its CSV file. :attr:`ReportFrames.dropped_rows` lists the removed rows by
+template, which maps a frame row back to its data row when a caller needs
+the file location.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ import itertools
 import os
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -47,6 +53,14 @@ class ReportFrames:
     tables: Mapping[str, pl.DataFrame]
     """Template ID to a frame with ``datapoint``, ``factValue`` (strings) and
     key columns; ``datapoint`` and key columns are categorical."""
+    dropped_rows: Mapping[str, tuple[int, ...]] = field(default_factory=dict)
+    """Template ID to the sorted 0-based data-row indices of the rows removed
+    from its frame: rows without a fact (an empty value, ``#empty`` or
+    ``#none``) and exact duplicates of an earlier row. Indices count data
+    rows as read, before any row is removed, and continue across the files
+    of a template in file order, as the frame does; data row ``i`` of a file
+    is on line ``i + 2`` when no value spans lines. Only templates with
+    removed rows appear."""
 
     @property
     def fact_count(self) -> int:
@@ -106,7 +120,7 @@ def read_xbrl_csv_frames(
                 on_metadata=on_metadata,
             )
             report = reader.read()
-            return ReportFrames(report, reader.frames())
+            return ReportFrames(report, reader.frames(), reader.dropped_rows())
         finally:
             if taxonomy is not None:
                 taxonomy.close()
@@ -122,6 +136,9 @@ class _FrameReader(_CsvReportReader):
         super().__init__(*args, **kwargs)
         self._frames: dict[str, list[pl.DataFrame]] = {}
         self._rows_read = 0
+        # Data rows read per template before filtering, and those removed.
+        self._rows_in_files: dict[str, int] = {}
+        self._dropped: dict[str, list[int]] = {}
         self._on_metadata = on_metadata
 
     def _before_tables(self, header: Report) -> None:
@@ -143,6 +160,9 @@ class _FrameReader(_CsvReportReader):
             template: parts[0] if len(parts) == 1 else pl.concat(parts, how="diagonal")
             for template, parts in self._frames.items()
         }
+
+    def dropped_rows(self) -> dict[str, tuple[int, ...]]:
+        return {template: tuple(rows) for template, rows in self._dropped.items()}
 
     def _read_metadata_table(self, name: str, *args: Any, **kwargs: Any) -> None:
         raise ReportError(
@@ -186,6 +206,8 @@ class _FrameReader(_CsvReportReader):
             )
         value = pl.col("factValue")
         special = value.str.starts_with("#") & ~value.str.starts_with("##")
+        # Special values are located before any row is removed, so their row
+        # numbers are the file's.
         if frame.select(special.any()).item():
             for finding, mask in (
                 (NIL_VALUE, value == "#nil"),
@@ -197,9 +219,16 @@ class _FrameReader(_CsvReportReader):
                 for row in rows.head(5):
                     self._filing.add(*finding, f"{display}:{row + 2}")
                 self._filing.add(*finding, count=rows.len() - min(rows.len(), 5))
-        frame = frame.filter(
-            (value != "") & ~value.is_in(["#empty", "#none"])
-        ).with_columns(
+        read = frame.height
+        has_fact = (value != "") & ~value.is_in(["#empty", "#none"])
+        kept = frame.filter(has_fact)
+        # Locating removed rows costs a second pass, so only when there are any.
+        no_fact = (
+            frame.select(pl.arg_where(~has_fact)).to_series().cast(pl.Int64)
+            if kept.height < read
+            else None
+        )
+        frame = kept.with_columns(
             pl.when(value == "#nil")
             .then(None)
             .when(value.str.starts_with("##"))
@@ -218,21 +247,56 @@ class _FrameReader(_CsvReportReader):
             .hash()
             .n_unique()
         ).item()
+        repeats = None
         if hashed < frame.height and frame.select(identity).n_unique() < frame.height:
-            before = frame.height
-            frame = frame.unique(maintain_order=True)
-            if frame.height < before:
-                self._warnings.count(f"{display}: duplicate facts ignored", display)
+            first = frame.select(pl.struct(pl.all()).is_first_distinct()).to_series()
+            if not first.all():
+                repeats = _rows_before(
+                    frame.select(pl.arg_where(~first)).to_series(), no_fact
+                )
+                frame = frame.filter(first)
+                self._warnings.count(
+                    f"{display}: duplicate facts ignored",
+                    f"{display}:{repeats[0] + 2}",
+                )
             if frame.select(identity).n_unique() < frame.height:
                 self._warnings.count(
                     f"{display}: conflicting duplicate facts kept", display
                 )
+        offset = self._rows_in_files.get(template_id, 0)
+        self._rows_in_files[template_id] = offset + read
+        removed = [rows for rows in (no_fact, repeats) if rows is not None]
+        if removed:
+            self._dropped.setdefault(template_id, []).extend(
+                (pl.concat(removed).sort() + offset).to_list()
+            )
         self._rows_read += frame.height
         if self._rows_read > self._limits.max_facts:
             raise ReportError(
                 f"{display}: report exceeds the limit of {self._limits.max_facts} facts"
             )
         self._frames.setdefault(template_id, []).append(frame)
+
+
+def _rows_before(rows: pl.Series, removed: pl.Series | None) -> pl.Series:
+    """Return the indices that rows of a filtered frame had before the filter.
+
+    Args:
+        rows: Row indices in the filtered frame.
+        removed: Sorted indices of the rows the filter removed, if any.
+
+    Returns:
+        pl.Series: The same rows' indices in the frame before the filter.
+    """
+    import polars as pl
+
+    rows = rows.cast(pl.Int64)
+    if removed is None:
+        return rows
+    # removed[i] - i rows were kept before the i-th removed row, so a kept
+    # row at position p follows each removed row with removed[i] - i <= p.
+    kept_before = removed - pl.int_range(removed.len(), eager=True)
+    return rows + kept_before.search_sorted(rows, side="right").cast(pl.Int64)
 
 
 class _Prefetch:
