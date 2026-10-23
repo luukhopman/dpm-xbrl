@@ -7,13 +7,14 @@ name = "dpm-xbrl"
 version = "0.1.0"
 description = "Read and write EBA-style xBRL-CSV and XBRL-XML regulatory reports (DPM taxonomies)"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
-authors = [{ name = "Luuk Hopman" }]
+authors = [{ name = "Luuk Hopman", email = "github@luukhopman.nl" }]
 keywords = ["EBA", "XBRL", "xBRL-CSV", "regulatory reporting", "report package"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Financial and Insurance Industry",
-    "Private :: Do Not Upload",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
@@ -32,6 +33,11 @@ dev = [
     { include-group = "test" },
     { include-group = "lint" },
 ]
+
+[project.urls]
+Homepage = "https://github.com/luukhopman/dpm-xbrl"
+Source = "https://github.com/luukhopman/dpm-xbrl"
+Issues = "https://github.com/luukhopman/dpm-xbrl/issues"
 
 [project.scripts]
 dpm-xbrl = "dpmxbrl.cli:main"
