@@ -6,22 +6,27 @@ import argparse
 import json
 import sys
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from importlib.metadata import PackageNotFoundError, version
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
 from .filing import RULE_TITLES
-from .model import Report, ReportError
-from .reader import read_report
+from .model import Limits, Report, ReportError
+from .reader import detect_format, read_report
 from .writer import write_xbrl_csv, write_xbrl_xml
 
 JSON_SCHEMA_VERSION = 1
 """Version of the ``inspect --json`` layout; it changes only with a new major."""
 
 
-def _summary(report: Report) -> dict[str, Any]:
-    templates = Counter(fact.template or "(none)" for fact in report.facts)
+def _summary(
+    report: Report, templates: Mapping[str, int] | None = None
+) -> dict[str, Any]:
+    if templates is None:
+        templates = Counter(fact.template or "(none)" for fact in report.facts)
     reported = sum(1 for value in report.filing_indicators.values() if value)
     return {
         "schema_version": JSON_SCHEMA_VERSION,
@@ -38,7 +43,7 @@ def _summary(report: Report) -> dict[str, Any]:
             "total": len(report.filing_indicators),
             "templates": dict(report.filing_indicators),
         },
-        "fact_count": len(report.facts),
+        "fact_count": sum(templates.values()),
         "facts_per_template": dict(sorted(templates.items())),
         "warnings": list(report.warnings),
         "filing_rules": [
@@ -147,6 +152,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     inspect.add_argument("--json", action="store_true", help="print JSON")
     inspect.add_argument(
+        "--columnar",
+        action="store_true",
+        help="count xBRL-CSV facts with polars: seconds instead of minutes for "
+        "millions of facts, checking special fact values only (frames extra)",
+    )
+    inspect.add_argument(
         "--fail-on",
         choices=("error", "warning"),
         help="exit with status 2 when the report breaks a filing rule of this "
@@ -166,6 +177,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     convert.add_argument("--root", help="top-level folder name (xBRL-CSV output)")
     for command in (inspect, convert):
+        limits = command.add_argument_group(
+            "limits", "resource limits for untrusted input (defaults in the README)"
+        )
+        for option, help_text in (
+            ("--max-file-size", "largest uncompressed file, in bytes"),
+            ("--max-total-size", "largest uncompressed package, in bytes"),
+            ("--max-zip-entries", "most entries in a package"),
+            ("--max-facts", "most facts in a report"),
+        ):
+            limits.add_argument(option, type=_positive, metavar="N", help=help_text)
         command.add_argument(
             "--taxonomy-package",
             action="append",
@@ -175,6 +196,64 @@ def _parser() -> argparse.ArgumentParser:
             help="local taxonomy package used to resolve xBRL-CSV metadata",
         )
     return parser
+
+
+def _positive(text: str) -> int:
+    try:
+        value = int(text.replace("_", ""))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not a whole number: {text!r}") from None
+    if value <= 0:
+        raise argparse.ArgumentTypeError(f"must be positive: {text!r}")
+    return value
+
+
+def _limits(arguments: argparse.Namespace) -> Limits:
+    overrides = {
+        name: getattr(arguments, name)
+        for name in ("max_file_size", "max_total_size", "max_zip_entries", "max_facts")
+        if getattr(arguments, name) is not None
+    }
+    return replace(Limits(), **overrides)
+
+
+def _inspected(
+    arguments: argparse.Namespace,
+) -> tuple[Report, Mapping[str, int] | None]:
+    """Read a report for inspect, columnar with ``--columnar``.
+
+    Counting the facts of a large xBRL-CSV package from polars frames takes
+    seconds where building every fact takes minutes, but checks special fact
+    values only (see the frames module), and needs the frames extra.
+
+    Returns:
+        tuple: The report and its fact count per template, or ``None`` when
+        the report's facts hold them.
+
+    Raises:
+        ReportError: If ``--columnar`` is used without the frames extra.
+    """
+    limits = _limits(arguments)
+    if arguments.columnar and detect_format(arguments.path) == "xbrl-csv":
+        if not find_spec("polars"):
+            raise ReportError("--columnar needs the frames extra: dpm-xbrl[frames]")
+        from .frames import MetadataTablesError, read_xbrl_csv_frames
+
+        try:
+            frames = read_xbrl_csv_frames(
+                arguments.path,
+                taxonomy_packages=arguments.taxonomy_package,
+                limits=limits,
+            )
+        except MetadataTablesError:
+            pass
+        else:
+            counts = {name: frame.height for name, frame in frames.tables.items()}
+            return frames.report, dict(sorted(counts.items()))
+    report = read_report(
+        arguments.path, taxonomy_packages=arguments.taxonomy_package, limits=limits
+    )
+    return report, None
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -187,10 +266,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
     try:
         if arguments.command == "inspect":
-            report = read_report(
-                arguments.path, taxonomy_packages=arguments.taxonomy_package
-            )
-            summary = _summary(report)
+            report, templates = _inspected(arguments)
+            summary = _summary(report, templates)
             if arguments.json:
                 print(json.dumps(summary, indent=2, ensure_ascii=False))
             else:
@@ -211,7 +288,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
         typed_domains = _typed_domains(arguments.typed_domain)
         report = read_report(
-            arguments.input, taxonomy_packages=arguments.taxonomy_package
+            arguments.input,
+            taxonomy_packages=arguments.taxonomy_package,
+            limits=_limits(arguments),
         )
         for warning in report.warnings:
             print(f"warning: {warning}", file=sys.stderr)

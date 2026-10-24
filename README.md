@@ -222,7 +222,8 @@ frames.tables["c_01.00"]  # polars frame: datapoint, factValue, keys
 ```
 
 `read_report` builds one `Fact` per value, which takes about 5 µs and 0.7 KB
-per fact: a report with 7 million open-table facts reads in about 30 seconds.
+per fact: a report with 7 million open-table facts reads in 30 to 50 seconds,
+depending on the machine.
 While it builds them, the readers pause Python's cyclic garbage collector for
 the whole process (facts form no reference cycles), and restore it after.
 The `frames` extra reads EBA-convention tables straight into polars frames of
@@ -268,7 +269,8 @@ cover these round trips.
 ## CLI
 
 ```
-dpm-xbrl inspect PATH [--json] [--fail-on error|warning] [--taxonomy-package ZIP ...]
+dpm-xbrl inspect PATH [--json] [--fail-on error|warning] [--columnar]
+                      [--taxonomy-package ZIP ...] [--max-facts N ...]
 dpm-xbrl convert IN OUT [--taxonomy-package ZIP ...]
                         [--typed-domain DIMENSION=ELEMENT ...] [--root NAME]
 dpm-xbrl --version
@@ -282,7 +284,11 @@ chooses the output format from the suffix: `.zip` writes xBRL-CSV, `.xbrl` or
 `.xml` writes XBRL-XML. Errors print `error: ...`
 and exit with status 1. With `--fail-on`, `inspect` exits with status 2 when
 the report breaks a filing rule of that severity (`warning` includes errors),
-so a pipeline can stop on reports the EBA would reject.
+so a pipeline can stop on reports the EBA would reject. `--columnar` counts
+xBRL-CSV facts with the `frames` extra: 21.9 million facts in 2 seconds and
+2.3 GB instead of minutes, checking special fact values only. `--max-facts`,
+`--max-file-size`, `--max-total-size` and `--max-zip-entries` raise the
+`Limits` for large trusted reports.
 
 ```text
 $ dpm-xbrl inspect EBA-COREP_OF.xbrl

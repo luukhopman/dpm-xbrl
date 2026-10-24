@@ -11,6 +11,13 @@ All notable changes to this project are documented here. The project follows
   report breaks a filing rule of that severity; `--version`, and examples in
   `--help`.
 - `dpmxbrl.__version__`; `inspect --json` output carries `schema_version`.
+- `inspect --columnar` counts large xBRL-CSV packages with polars, and both
+  commands take `--max-facts`, `--max-file-size`, `--max-total-size` and
+  `--max-zip-entries`.
+- `dpmxbrl.frames.MetadataTablesError`, a `ReportError` raised when a package
+  needs `read_xbrl_csv`, so callers need not match the message.
+- `write_xbrl_xml` and `convert --typed-domain` accept a typed domain element
+  in Clark notation, `{namespace}local`, and declare its namespace.
 - The public API is documented: every name in the `__all__` of `dpmxbrl`,
   `dpmxbrl.filing` and `dpmxbrl.frames`, and how table codes map to filing
   indicators.

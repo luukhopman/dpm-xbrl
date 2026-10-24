@@ -55,6 +55,14 @@ if TYPE_CHECKING:
 _READ_WORKERS = max(1, min(3, os.cpu_count() or 1))
 
 
+class MetadataTablesError(ReportError):
+    """The package has tables described by xBRL-CSV metadata.
+
+    Columnar reading supports the EBA ``datapoint``/``factValue`` convention
+    only; read such a package with :func:`dpmxbrl.read_xbrl_csv`.
+    """
+
+
 @dataclass(frozen=True)
 class ReportFrames:
     """Report metadata plus one string frame per table template."""
@@ -112,8 +120,8 @@ def read_xbrl_csv_frames(
         ReportFrames: Report metadata and the table frames.
 
     Raises:
-        ReportError: If the package is invalid, unsafe, over a limit, or
-            uses metadata-described tables.
+        MetadataTablesError: If the package has metadata-described tables.
+        ReportError: If the package is invalid, unsafe or over a limit.
     """
     try:
         import polars as pl  # ruff: ignore[unused-import]
@@ -212,7 +220,7 @@ class _FrameReader(_CsvReportReader):
         return {template: tuple(rows) for template, rows in self._dropped.items()}
 
     def _read_metadata_table(self, name: str, *args: Any, **kwargs: Any) -> None:
-        raise ReportError(
+        raise MetadataTablesError(
             f"{self._display(name)}: tables described by xBRL-CSV metadata need "
             "read_xbrl_csv; columnar reading supports the EBA datapoint/factValue "
             "convention"
@@ -409,4 +417,4 @@ def _rows_before(rows: pl.Series, removed: pl.Series | None) -> pl.Series:
     return rows + kept_before.search_sorted(rows, side="right").cast(pl.Int64)
 
 
-__all__ = ["ReportFrames", "read_xbrl_csv_frames"]
+__all__ = ["MetadataTablesError", "ReportFrames", "read_xbrl_csv_frames"]

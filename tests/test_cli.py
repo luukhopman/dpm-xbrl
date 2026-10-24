@@ -114,3 +114,26 @@ def test_version(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         main(["--version"])
     assert capsys.readouterr().out.startswith("dpm-xbrl ")
+
+
+def test_inspect_columnar_counts_like_read_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pytest.importorskip("polars")
+    path = write_zip(tmp_path / "r.zip", open_files())
+    assert main(["inspect", str(path), "--json"]) == 0
+    full = json.loads(capsys.readouterr().out)
+    assert main(["inspect", str(path), "--json", "--columnar"]) == 0
+    columnar = json.loads(capsys.readouterr().out)
+    for field in ("fact_count", "facts_per_template", "reference_date", "entity_id"):
+        assert columnar[field] == full[field]
+
+
+def test_cli_limits_are_applied(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = write_zip(tmp_path / "r.zip", open_files())
+    assert main(["inspect", str(path), "--max-facts", "2"]) == 1
+    assert "exceeds the limit of 2 facts" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        main(["inspect", str(path), "--max-facts", "0"])
