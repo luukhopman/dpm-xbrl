@@ -27,6 +27,7 @@ from .model import (
 )
 from .reader import detect_format, read_report
 from .writer import (
+    DecimalsWarning,
     EntryPointWarning,
     default_package_root,
     write_xbrl_csv,
@@ -35,6 +36,7 @@ from .writer import (
 from .xml_reader import read_xbrl_xml
 
 __all__ = [
+    "DecimalsWarning",
     "EntryPointWarning",
     "Fact",
     "FilingFinding",

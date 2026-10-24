@@ -38,6 +38,8 @@ works on its own input and returns immutable results. See
 
 ::: dpmxbrl.EntryPointWarning
 
+::: dpmxbrl.DecimalsWarning
+
 ## Model
 
 ::: dpmxbrl.Report

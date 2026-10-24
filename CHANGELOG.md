@@ -49,6 +49,8 @@ All notable changes to this project are documented here. The project follows
   reporting a rule twice.
 - `SkippedFacts`, the type `write_xbrl_csv` returns: a tuple of
   `SkippedFact(fact, reason, code)`, with stable codes.
+- `DecimalsWarning` names the facts whose decimals a converted package's
+  `decimals*` parameter lowers.
 - `Limits.max_taxonomy_entries` bounds the entries of a taxonomy package
   ZIP, and files read from taxonomy packages count towards
   `Limits.max_total_size`.

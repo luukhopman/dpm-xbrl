@@ -232,6 +232,10 @@ def write_xbrl_csv(
         SkippedFacts: The facts left out, each a :class:`SkippedFact` with
         the reason and its code; always empty when ``strict`` is true.
 
+    Warns:
+        DecimalsWarning: If a ``decimals*`` parameter is lower than the
+            decimals of some of its facts, naming them.
+
     Raises:
         ReportError: If a fact lacks a template or datapoint (without
             taxonomy packages) or cannot be placed (with them, in strict
@@ -462,11 +466,13 @@ def _place_facts(
         result.parameters[parameter] = (
             "INF" if decimals == math.inf else str(int(decimals))
         )
+    lowered: dict[str, list[str]] = {}
     for fact, placements, members in placed:
         problem = _parameter_problem(fact, placements[0], names, result.parameters)
         if problem:
             problems.append(SkippedFact(fact, problem, "currencyMismatch"))
             continue
+        _note_lowered(fact, placements[0], result.parameters, lowered)
         value = _encode_value(fact.value)
         if placements[0].enumeration and fact.value:
             value = _encode_value(names.translate_list(fact.value))
@@ -477,6 +483,15 @@ def _place_facts(
                 for dimension in place.keys
             )
             result.rows.setdefault(place.table, []).append(row)
+    for parameter, locations in lowered.items():
+        warnings.warn(
+            f"{parameter} is {result.parameters[parameter]}, the lowest decimals "
+            f"of its facts, so {len(locations)} fact"
+            f"{' states' if len(locations) == 1 else 's state'} less accuracy "
+            f"than in the report: {describe(locations)}",
+            DecimalsWarning,
+            stacklevel=3,
+        )
     if problems and strict:
         shown = [f"{item.fact.location or 'fact'}: {item.reason}" for item in problems]
         raise ReportError(
@@ -486,6 +501,20 @@ def _place_facts(
         )
     result.skipped = tuple(problems)
     return result
+
+
+def _note_lowered(
+    fact: Fact,
+    place: Placement,
+    parameters: Mapping[str, str],
+    lowered: dict[str, list[str]],
+) -> None:
+    """Note a fact whose decimals parameter is lower than its own decimals."""
+    if not place.decimals or fact.unit is None or fact.value is None:
+        return
+    own = "INF" if fact.decimals is None else str(fact.decimals)
+    if parameters.get(place.decimals, own) != own:
+        lowered.setdefault(place.decimals, []).append(fact.location or "fact")
 
 
 def _unit_problem(fact: Fact, place: Placement, names: Namespaces) -> str | None:
@@ -678,6 +707,15 @@ def write_xbrl_xml(
 
 class EntryPointWarning(UserWarning):
     """``write_xbrl_xml`` named an XSD entry point it could not confirm."""
+
+
+class DecimalsWarning(UserWarning):
+    """``write_xbrl_csv`` lowered the decimals some facts state.
+
+    An EBA xBRL-CSV package gives decimals per data type, in ``decimals*``
+    parameters; each takes the lowest decimals of its facts, so a fact that
+    had more now states less accuracy than in the report.
+    """
 
 
 def _schema_entry_point(entry_point: str, taxonomy: TaxonomyPackages | None) -> str:

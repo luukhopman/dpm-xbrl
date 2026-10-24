@@ -123,7 +123,8 @@ dp100 {'c0010': 'cp2', 'c0020': 'eba_qCO:qx2001'} DEF
   the module lacks.
 - `baseCurrency` is the report's base currency, and each `decimals*`
   parameter the lowest decimals of its facts, so that no value claims more
-  accuracy than its source gave it.
+  accuracy than its source gave it. The facts that had more decimals are
+  named in a [`DecimalsWarning`][dpmxbrl.DecimalsWarning].
 - Read back with the packages, the package gives the facts of the instance
   again; the tests check this on the EBA's official samples.
 

@@ -14,6 +14,7 @@ from zipfile import ZipFile
 import pytest
 
 from dpmxbrl import (
+    DecimalsWarning,
     Fact,
     Report,
     ReportError,
@@ -188,8 +189,14 @@ def test_decimals_parameters_take_the_lowest_decimals(
         for fact in xml.facts
     )
     target = tmp_path / "out.zip"
-    write_xbrl_csv(replace(xml, facts=facts), target, taxonomy_packages=[package])
+    with pytest.warns(DecimalsWarning) as caught:
+        write_xbrl_csv(replace(xml, facts=facts), target, taxonomy_packages=[package])
     assert read_report(target).decimals_parameters["decimalsMonetary"] == -4
+    (warning,) = caught
+    assert str(warning.message).startswith(
+        "decimalsMonetary is -4, the lowest decimals of its facts, so 1 fact "
+        "states less accuracy than in the report:"
+    )
 
 
 def test_conversion_needs_the_module(
