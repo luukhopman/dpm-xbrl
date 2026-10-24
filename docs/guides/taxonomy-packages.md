@@ -123,3 +123,7 @@ extending document taking precedence. The supported subset of xBRL-CSV
 table templates is listed in [data formats](../reference/data-formats.md#resolved-metadata).
 A table whose template cannot be resolved falls back to the EBA
 convention; an unresolved `extends` produces one warning.
+
+Resolving metadata costs time: the EBA COREP own-funds sample reads
+several times slower with its metadata than without; see the
+[benchmarks](../project/benchmarks.md).

@@ -54,6 +54,7 @@ nav = [
   { "AI agents" = "agents.md" },
   { "Project" = [
     { "Changelog" = "project/changelog.md" },
+    { "Benchmarks" = "project/benchmarks.md" },
     { "Stability and versioning" = "project/stability.md" },
     { "Security" = "project/security.md" },
     { "Contributing" = "project/contributing.md" },

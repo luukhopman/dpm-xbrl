@@ -105,6 +105,8 @@ ignore = [
 "tests/*" = ["D", "DOC", "line-too-long"]
 # The docs build runs the zensical command it is given, never user input.
 "scripts/*" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true"]
+# Benchmark scripts run the commands they build, and date their results.
+"benchmarks/*" = ["S", "DTZ"]
 # The XML reader rejects DOCTYPE/ENTITY declarations before parsing and never
 # resolves external entities.
 "src/dpmxbrl/xml_reader.py" = ["suspicious-xml-element-tree-usage", "suspicious-xml-etree-import"]
