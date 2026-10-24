@@ -174,7 +174,7 @@ from dpmxbrl.filing import check_entry_point, check_file_name, check_subject
 
 report = read_report("report.zip")
 log = FilingLog()
-check_subject(dataclasses.replace(report, entity_id="529900t8bm49aursdo55.CON"), log)
+check_subject(dataclasses.replace(report, entity_id="syntheticdpmxl000002.CON"), log)
 check_file_name(
     "SYNTHETICDPMXL000002.CON_FR_COREP030300_COREPLE_2025-12-31.zip", report, log
 )
@@ -185,6 +185,6 @@ for finding in log.result():
 
 ```text
 2.2 inappropriateTaxonomyRef | The entry point corep_le.json must be the full published URL.
-3.6 reportingSubjectNotUppercase | The reporting subject 529900t8bm49aursdo55.CON must be written in upper case.
+3.6 reportingSubjectNotUppercase | The reporting subject syntheticdpmxl000002.CON must be written in upper case.
 File naming invalidFileName | The file name does not follow ReportSubject_Country_FrameworkCodeModuleVersion_Module_ReferenceDate_CreationTimestamp, the structure for reports sent to the EBA.
 ```
