@@ -37,6 +37,7 @@ from .filing import (
     DECIMALS_SUFFIX,
     EMPTY_VALUE,
     KEY_SPACES,
+    MISSING_KEY_VALUE,
     NIL_VALUE,
     SPECIAL_KEY_VALUE,
     SPECIAL_VALUE,
@@ -873,10 +874,20 @@ class _CsvReportReader:
         self._filing.add(*SPECIAL_VALUE, location)
         return cell != "#none", None if cell == "#none" else cell
 
-    def _check_keys(self, keys: Mapping[str, str], location: str) -> None:
-        """Check key column values for special values and spaces."""
-        for value in keys.values():
-            if value.startswith("#") and not value.startswith("##"):
+    def _check_keys(
+        self, keys: Mapping[str, str], location: str, *, empty: bool = True
+    ) -> None:
+        """Check key column values for special values, spaces and emptiness.
+
+        Without metadata every key column but ``unit``, which only some data
+        points use, must hold a value (rule 4); with metadata the reader
+        checks the columns each data point refers to instead.
+        """
+        for column, value in keys.items():
+            if not value:
+                if empty and column != "unit":
+                    self._filing.add(*MISSING_KEY_VALUE, location)
+            elif value.startswith("#") and not value.startswith("##"):
                 self._filing.add(*SPECIAL_KEY_VALUE, location)
             elif value != value.strip():
                 self._filing.add(*KEY_SPACES, location)
@@ -1050,6 +1061,15 @@ class _CsvReportReader:
         )
         if not fact_columns:
             self._warnings.add(f"{display}: table template defines no fact columns")
+        missing = [column for column in template["columns"] if column not in header]
+        if missing:
+            self._filing.add(
+                "xBRL-CSV 2",
+                "missingHeaderColumn",
+                "error",
+                "The table header must hold every column its metadata defines.",
+                f"{display}:1: {', '.join(missing)}",
+            )
         key_names = tuple(column for _, column in key_columns)
         for line, row in self._rows(rows, len(header), display):
             location = f"{display}:{line}"
@@ -1060,7 +1080,7 @@ class _CsvReportReader:
                 if key_columns
                 else EMPTY_MAPPING
             )
-            self._check_keys(keys, location)
+            self._check_keys(keys, location, empty=False)
             for column in fact_columns:
                 keep, value = self._fact_value(row[column.index], display, location)
                 if not keep:
@@ -1122,6 +1142,8 @@ class _CsvReportReader:
             return raw
         reference = raw[1:].partition("@")[0]
         if reference in cells:
+            if not cells[reference]:
+                self._filing.add(*MISSING_KEY_VALUE, location)
             return cells[reference] or None
         if reference in table_parameters:
             return str(table_parameters[reference])

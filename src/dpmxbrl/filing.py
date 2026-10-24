@@ -121,6 +121,12 @@ SPACES: Rule = (
 
 The readers do not know data types, so they leave this check to callers
 that do; they check key values (:data:`KEY_SPACES`) themselves."""
+MISSING_KEY_VALUE: Rule = (
+    "xBRL-CSV 4",
+    "missingKeyValue",
+    "error",
+    "Key columns must hold a value for each reported fact.",
+)
 KEY_SPACES: Rule = (
     "3.11",
     "leadingOrTrailingSpacesInText",
@@ -128,6 +134,116 @@ KEY_SPACES: Rule = (
     "Key values should not start or end with spaces or line breaks.",
 )
 
+
+_SUBJECT = (
+    ("2.8", "inappropriateScheme"),
+    ("2.8", "missingIdentifier"),
+    ("2.8", "unacceptableIdentifier"),
+    ("3.6", "inappropriateScheme"),
+    ("3.6", "incorrectLeiScheme"),
+    ("3.6", "missingReportingSubjectSuffix"),
+    ("3.6", "reportingSubjectNotUppercase"),
+    ("3.6", "unexpectedReportingSubjectSuffix"),
+    ("3.6", "unrecognizedReportingSubjectSuffix"),
+    ("File naming", "invalidFileName"),
+)
+_CSV_PACKAGE = (
+    *_SUBJECT,
+    ("1.5", "inappropriateTaxonomyRef"),
+    ("1.5", "multipleTaxonomyRefs"),
+    ("1.6", "missingFilingIndicators"),
+    ("1.6.1", "duplicateFilingIndicator"),
+    ("2.2", "inappropriateTaxonomyRef"),
+    ("2.3", "multipleTaxonomyRefs"),
+    ("2.10", "periodWithTimeContent"),
+    ("2.10", "periodWithTimezone"),
+    ("File naming", "invalidRootFolder"),
+    ("Package", "missingParametersFile"),
+    ("Package", "missingReferencePeriod"),
+    ("Package", "missingReportPackageJson"),
+    ("Package", "unexpectedFile"),
+    ("xBRL-CSV 6", "tableForNegativeFilingIndicator"),
+    ("2.19", "nilUsed"),
+    ("2.19", "emptyUsed"),
+    ("xBRL-CSV 5", "specialValueUsed"),
+)
+CHECKED_RULES: dict[str, frozenset[tuple[str, str]]] = {
+    "xbrl-xml": frozenset(
+        {
+            *_SUBJECT,
+            ("1.4", "encodingNotUtf8"),
+            ("1.5", "inappropriateSchemaRef"),
+            ("1.6", "invalidContextForFilingIndicator"),
+            ("1.6", "missingFilingIndicators"),
+            ("1.6.1", "duplicateFilingIndicator"),
+            ("1.13", "standaloneDocumentDeclarationUsed"),
+            ("1.14", "schemaLocationAttributeUsed"),
+            ("1.15", "xIncludeUsed"),
+            ("2.1", "xmlBaseUsed"),
+            ("2.2", "inappropriateSchemaRef"),
+            ("2.3", "multipleSchemaRefs"),
+            ("2.4", "linkbaseRefUsed"),
+            ("2.7", "duplicateContext"),
+            ("2.7", "unusedContext"),
+            ("2.9", "multipleIdentifiers"),
+            ("2.10", "periodWithTimeContent"),
+            ("2.10", "periodWithTimezone"),
+            ("2.11", "foreverUsed"),
+            ("2.13", "multiplePeriodsUsed"),
+            ("2.13", "nonInstantPeriodUsed"),
+            ("2.14", "segmentUsed"),
+            ("2.15", "scenarioContainsNonDimensionContent"),
+            ("2.16", "duplicateFactXBRL-XML"),
+            ("2.16.1", "factsDifferingOnlyByUnit"),
+            ("2.17", "precisionUsed"),
+            ("2.18", "missingDecimalsAttribute"),
+            ("2.19", "emptyUsed"),
+            ("2.19", "nilUsed"),
+            ("2.21", "duplicateUnit"),
+            ("2.22", "unusedUnit"),
+            ("2.25", "xbrlFootnotesAreIgnored"),
+            ("3.1", "inconsistentCurrencyUnitAndDimension"),
+            ("3.1", "multipleReportingCurrencies"),
+            ("3.2", "pureUnitNotUsedForMonetaryValue"),
+            ("3.4", "unusedNamespacePrefix"),
+            ("3.9", "unexpectedNamespaceDeclarations"),
+            ("3.10", "multiplePrefixForNamespace"),
+        }
+    ),
+    "xbrl-csv": frozenset(
+        {
+            *_CSV_PACKAGE,
+            ("3.11", "leadingOrTrailingSpacesInText"),
+            ("xBRL-CSV 1", "decimalsSuffixUsed"),
+            ("xBRL-CSV 2", "missingHeaderColumn"),
+            ("xBRL-CSV 4", "missingKeyValue"),
+            ("xBRL-CSV 5", "specialKeyValueUsed"),
+        }
+    ),
+    "xbrl-csv-frames": frozenset(_CSV_PACKAGE),
+    "taxonomy": frozenset(
+        {
+            ("1.5", "inappropriateSchemaRef"),
+            ("1.5", "inappropriateTaxonomyRef"),
+            ("1.6", "missingFilingIndicators"),
+            ("1.6.3", "invalidFilingIndicatorValue"),
+            ("2.18", "accuracyRequirements"),
+            ("3.2", "useDecimalFractions"),
+            ("3.5", "notRecommendedNamespacePrefix"),
+        }
+    ),
+}
+"""The ``(rule, code)`` findings each reader can record, so callers that
+check rules themselves can avoid reporting one twice.
+
+``xbrl-xml`` is :func:`~dpmxbrl.read_xbrl_xml`, ``xbrl-csv``
+:func:`~dpmxbrl.read_xbrl_csv` (``xBRL-CSV 2`` needs resolved metadata) and
+``xbrl-csv-frames`` :func:`~dpmxbrl.frames.read_xbrl_csv_frames`, without
+taxonomy packages. ``taxonomy`` lists what any of them adds only when given
+``taxonomy_packages``: the module's entry point and reference dates (1.5),
+filing indicator codes (1.6, 1.6.3), and, from facts, accuracy (2.18) and
+percentages (3.2); 3.5 is checked for XML only, and the frames reader, which
+builds no facts, adds neither 2.18 nor 3.2."""
 
 _EXAMPLES = 5
 _LEI_SCHEME = "http://standards.iso.org/iso/17442"
@@ -551,9 +667,11 @@ def check_entry_point(
 
 
 __all__ = [
+    "CHECKED_RULES",
     "DECIMALS_SUFFIX",
     "EMPTY_VALUE",
     "KEY_SPACES",
+    "MISSING_KEY_VALUE",
     "NIL_VALUE",
     "RULE_TITLES",
     "SPACES",
