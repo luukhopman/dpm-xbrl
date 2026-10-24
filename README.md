@@ -79,7 +79,8 @@ path as xBRL-CSV and everything else as XBRL-XML. Every failure raises
 - `parameters.csv` (or the metadata's `parameterURL`) must have the header
   `name,value`. `entityID` such as `lei:5299...` becomes `entity_id`; its
   prefix is looked up in `namespaces` for `entity_scheme`, else kept as the
-  scheme. `refPeriod` must be a `YYYY-MM-DD` date. Parameters named
+  scheme. `refPeriod` must be a `YYYY-MM-DD` date (a basic-format `YYYYMMDD` date, or one
+  with a time or time zone, is read and breaks filing rule 2.10). Parameters named
   `decimals*` populate `decimals_parameters` (`#none` and `INF` map to `None`).
   Inline JSON `parameters` are merged first; the CSV file overrides them.
 - `FilingIndicators.csv` must have the header `templateID,reported`, with
@@ -212,12 +213,14 @@ split values by data type, which can record them with the same messages
 from dpmxbrl.frames import read_xbrl_csv_frames
 
 frames = read_xbrl_csv_frames("report.zip")
-frames.report.reference_date          # the Report, with facts == ()
-frames.tables["c_01.00"]              # polars frame: datapoint, factValue, keys
+frames.report.reference_date  # the Report, with facts == ()
+frames.tables["c_01.00"]  # polars frame: datapoint, factValue, keys
 ```
 
 `read_report` builds one `Fact` per value, which takes about 5 µs and 0.7 KB
 per fact: a report with 7 million open-table facts reads in about 30 seconds.
+While it builds them, the readers pause Python's cyclic garbage collector for
+the whole process (facts form no reference cycles), and restore it after.
 The `frames` extra reads EBA-convention tables straight into polars frames of
 strings instead, the same report in about a second. It applies the same
 package, metadata, parameter, filing-indicator, header, special-value and

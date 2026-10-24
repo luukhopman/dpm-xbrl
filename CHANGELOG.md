@@ -8,7 +8,8 @@ All notable changes to this project are documented here. The project follows
 ### Changed
 
 - The `dimensions`, `typed_dimensions` and `keys` mappings of facts that are
-  read may be shared, read-only mappings; copy one with `dict()` to change it.
+  read are read-only `dict`s that facts may share; copy one with `dict()` to
+  change it. They pickle, copy and serialize as plain dicts.
 - `detect_format` is annotated to return `ReportFormat`.
 
 ### Fixed
@@ -19,21 +20,25 @@ All notable changes to this project are documented here. The project follows
   encodings, unreadable files, ZIP entries with an unsupported compression
   method, damaged taxonomy package entries, JSON nested too deeply and a
   malformed `propertiesFrom`.
-- Week and ordinal dates are no longer read as a `refPeriod` or XML period.
+- A `refPeriod` must be a `YYYY-MM-DD` or `YYYYMMDD` date: week dates and
+  mixed or non-ASCII digits are rejected. An XML period must start with a
+  `YYYY-MM-DD` date, as `xs:date` requires.
 - Directory packages reject linked directories that leave the package, and
   re-check each file when it is opened.
 - xBRL-CSV drops exact copies of a fact whose key already had a conflicting
   value; XML finds duplicate facts that share a fact id or have none.
 - `write_xbrl_xml` rejects invalid qnames, namespace prefixes and characters
   XML cannot represent, and keeps carriage returns.
-- `read_xbrl_csv_frames` rejects repeated and empty table columns.
+- `read_xbrl_csv_frames` rejects repeated and empty table columns, and an
+  unreadable header raises `ReportError`.
 - Caller-built filing findings with any `xBRL-CSV` rule name can be sorted.
 
 ### Performance
 
 - Reading 7.3 million CSV facts takes 33 s and 5.0 GB instead of 55 s and
-  7.4 GB: the garbage collector is paused while facts are built, and facts
-  share empty mappings, datapoint codes and XML context dimensions.
+  7.4 GB: the cyclic garbage collector is paused (process-wide) while facts
+  are built, and facts share empty mappings, datapoint codes and XML context
+  dimensions.
 
 ## 0.1.1 - 2026-10-23
 
