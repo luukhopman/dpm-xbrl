@@ -239,10 +239,35 @@ def _json_bytes(value: object) -> bytes:
 
 # XBRL-XML ----------------------------------------------------------------------
 
+_NCNAME = re.compile(r"[A-Za-z_][\w.\-]*")
+_XML_ILLEGAL = re.compile(r"[^\t\n\r\x20-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]")
+
+
+def _checked(value: str, where: str) -> str:
+    match = _XML_ILLEGAL.search(value)
+    if match:
+        raise ReportError(
+            f"{where}: {value!r} contains the character "
+            f"U+{ord(match.group()):04X}, which XML cannot represent"
+        )
+    return value
+
+
+def _text(value: str, where: str = "XBRL-XML output") -> str:
+    # A literal carriage return would be read back as a line feed.
+    return escape(_checked(value, where), {"\r": "&#13;"})
+
+
+def _attribute(value: str) -> str:
+    return quoteattr(_checked(value, "XBRL-XML output"))
+
 
 class _Namespaces:
     def __init__(self, declared: Mapping[str, str]) -> None:
         self.declared = {prefix: uri for prefix, uri in declared.items() if prefix}
+        for prefix in self.declared:
+            if not _NCNAME.fullmatch(prefix):
+                raise ReportError(f"{prefix!r} is not a valid namespace prefix")
 
     def prefix(self, uri: str, preferred: str) -> str:
         for prefix, bound in self.declared.items():
@@ -256,7 +281,7 @@ class _Namespaces:
 
     def check(self, qname: str, where: str) -> str:
         prefix, separator, local = qname.partition(":")
-        if not separator or not local or prefix not in self.declared:
+        if not separator or prefix not in self.declared or not _NCNAME.fullmatch(local):
             raise ReportError(
                 f"{where}: {qname!r} is not a qname with a declared prefix"
             )
@@ -339,33 +364,34 @@ def write_xbrl_xml(
                 )
             namespaces.check(domains[dimension], f"typed domain of {dimension}")
         context = context_id(fact.dimensions, fact.typed_dimensions)
-        attributes = [f"contextRef={quoteattr(context)}"]
+        attributes = [f"contextRef={_attribute(context)}"]
         if fact.unit is not None:
             for measure in re.split(r"[*/]", fact.unit):
                 namespaces.check(measure, where)
             unit_id = units.setdefault(fact.unit, f"u{len(units) + 1}")
-            attributes.append(f"unitRef={quoteattr(unit_id)}")
+            attributes.append(f"unitRef={_attribute(unit_id)}")
             if fact.value is not None:
                 decimals = "INF" if fact.decimals is None else str(fact.decimals)
-                attributes.append(f"decimals={quoteattr(decimals)}")
+                attributes.append(f"decimals={_attribute(decimals)}")
         if fact.value is None:
             attributes.append(f'{xsi}:nil="true"')
             fact_lines.append(f"  <{concept} {' '.join(attributes)}/>")
         else:
+            value = _text(fact.value, where)
             fact_lines.append(
-                f"  <{concept} {' '.join(attributes)}>{escape(fact.value)}</{concept}>"
+                f"  <{concept} {' '.join(attributes)}>{value}</{concept}>"
             )
 
     lines = ['<?xml version="1.0" encoding="UTF-8"?>']
     declarations = " ".join(
-        f"xmlns:{prefix}={quoteattr(uri)}"
+        f"xmlns:{prefix}={_attribute(uri)}"
         for prefix, uri in sorted(namespaces.declared.items())
     )
     lines.append(f"<{xbrli}:xbrl {declarations}>")
     if report.entry_point:
         lines.append(
             f'  <{link}:schemaRef {xlink}:type="simple" '
-            f"{xlink}:href={quoteattr(report.entry_point)}/>"
+            f"{xlink}:href={_attribute(report.entry_point)}/>"
         )
     if report.filing_indicators:
         base = contexts[()]
@@ -373,16 +399,16 @@ def write_xbrl_xml(
         for code, filed in report.filing_indicators.items():
             filed_attribute = "" if filed else f' {find}:filed="false"'
             lines.append(
-                f"    <{find}:filingIndicator contextRef={quoteattr(base)}"
-                f"{filed_attribute}>{escape(code)}</{find}:filingIndicator>"
+                f"    <{find}:filingIndicator contextRef={_attribute(base)}"
+                f"{filed_attribute}>{_text(code)}</{find}:filingIndicator>"
             )
         lines.append(f"  </{find}:fIndicators>")
     for identifier, dimensions, typed in context_dimensions:
-        lines.append(f"  <{xbrli}:context id={quoteattr(identifier)}>")
+        lines.append(f"  <{xbrli}:context id={_attribute(identifier)}>")
         lines.append(f"    <{xbrli}:entity>")
         lines.append(
-            f"      <{xbrli}:identifier scheme={quoteattr(report.entity_scheme)}>"
-            f"{escape(report.entity_id)}</{xbrli}:identifier>"
+            f"      <{xbrli}:identifier scheme={_attribute(report.entity_scheme)}>"
+            f"{_text(report.entity_id)}</{xbrli}:identifier>"
         )
         lines.append(f"    </{xbrli}:entity>")
         lines.append(
@@ -392,21 +418,21 @@ def write_xbrl_xml(
         if dimensions or typed:
             lines.append(f"    <{xbrli}:scenario>")
             lines.extend(
-                f"      <{xbrldi}:explicitMember dimension={quoteattr(dimension)}>"
-                f"{escape(dimensions[dimension])}</{xbrldi}:explicitMember>"
+                f"      <{xbrldi}:explicitMember dimension={_attribute(dimension)}>"
+                f"{_text(dimensions[dimension])}</{xbrldi}:explicitMember>"
                 for dimension in sorted(dimensions)
             )
             for dimension in sorted(typed):
                 domain = domains[dimension]
                 lines.append(
-                    f"      <{xbrldi}:typedMember dimension={quoteattr(dimension)}>"
-                    f"<{domain}>{escape(typed[dimension])}</{domain}>"
+                    f"      <{xbrldi}:typedMember dimension={_attribute(dimension)}>"
+                    f"<{domain}>{_text(typed[dimension])}</{domain}>"
                     f"</{xbrldi}:typedMember>"
                 )
             lines.append(f"    </{xbrli}:scenario>")
         lines.append(f"  </{xbrli}:context>")
     for unit, unit_id in units.items():
-        lines.append(f"  <{xbrli}:unit id={quoteattr(unit_id)}>")
+        lines.append(f"  <{xbrli}:unit id={_attribute(unit_id)}>")
         numerator, separator, denominator = unit.partition("/")
         if separator:
             lines.append(f"    <{xbrli}:divide>")
@@ -416,14 +442,14 @@ def write_xbrl_xml(
             ):
                 lines.append(f"      <{xbrli}:{part}>")
                 lines.extend(
-                    f"        <{xbrli}:measure>{escape(measure)}</{xbrli}:measure>"
+                    f"        <{xbrli}:measure>{_text(measure)}</{xbrli}:measure>"
                     for measure in measures.split("*")
                 )
                 lines.append(f"      </{xbrli}:{part}>")
             lines.append(f"    </{xbrli}:divide>")
         else:
             lines.extend(
-                f"    <{xbrli}:measure>{escape(measure)}</{xbrli}:measure>"
+                f"    <{xbrli}:measure>{_text(measure)}</{xbrli}:measure>"
                 for measure in unit.split("*")
             )
         lines.append(f"  </{xbrli}:unit>")

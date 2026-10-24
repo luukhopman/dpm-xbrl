@@ -195,6 +195,22 @@ def test_xml_writer_errors() -> None:
     undeclared = replace(report, facts=(Fact("1", concept="zz:x"),))
     with pytest.raises(ReportError, match="'zz:x' is not a qname with a declared"):
         write_xbrl_xml(undeclared, io.BytesIO())
+    bad_local = replace(report, facts=(Fact("1", concept="eba_met:a b"),))
+    with pytest.raises(ReportError, match="is not a qname with a declared"):
+        write_xbrl_xml(bad_local, io.BytesIO())
+    control = replace(
+        report, facts=(Fact("a\x01b", concept="eba_met:ei1", location="f9"),)
+    )
+    with pytest.raises(ReportError, match=r"f9: .* U\+0001"):
+        write_xbrl_xml(control, io.BytesIO())
+
+
+def test_xml_round_trip_keeps_carriage_returns() -> None:
+    report = read_report(XML_INSTANCE.encode())
+    text = replace(report, facts=(Fact("a\r\nb", concept="eba_met:ei1"),))
+    target = io.BytesIO()
+    write_xbrl_xml(text, target)
+    assert read_report(target.getvalue()).facts[0].value == "a\r\nb"
 
 
 def test_metadata_csv_converts_to_xml(tmp_path: Path) -> None:
