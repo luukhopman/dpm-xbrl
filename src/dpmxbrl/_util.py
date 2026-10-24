@@ -8,13 +8,36 @@ import threading
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from types import MappingProxyType
-from typing import Any
+from typing import Any, NoReturn
 
 from .model import ReportError
 
-EMPTY_MAPPING: MappingProxyType[str, str] = MappingProxyType({})
-"""Read-only empty mapping shared by facts without dimensions or keys."""
+
+class FrozenDict(dict[str, str]):
+    """A dict that refuses changes, so facts can share one.
+
+    It pickles, copies and serializes as a plain dict.
+    """
+
+    __slots__ = ()
+
+    def _refuse(self, *_: object, **__: object) -> NoReturn:
+        raise TypeError("fact mappings are read-only; copy one with dict()")
+
+    __setitem__ = __delitem__ = __ior__ = _refuse
+    clear = pop = popitem = setdefault = update = _refuse
+
+    def __reduce__(self) -> tuple[type[dict[str, str]], tuple[dict[str, str]]]:
+        """Pickle and copy as a plain dict.
+
+        Returns:
+            tuple: ``dict`` and its argument.
+        """
+        return dict, (dict(self),)
+
+
+EMPTY_MAPPING = FrozenDict()
+"""Empty mapping shared by facts without dimensions or keys."""
 
 _gc_lock = threading.Lock()
 _gc_pauses = 0

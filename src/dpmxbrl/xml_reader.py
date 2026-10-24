@@ -18,11 +18,10 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
-from types import MappingProxyType
 from typing import IO, Any
 from xml.etree import ElementTree as ET
 
-from ._util import EMPTY_MAPPING, WarningLog, gc_paused
+from ._util import EMPTY_MAPPING, FrozenDict, WarningLog, gc_paused
 from ._xmlsafe import check_prolog
 from .filing import FilingLog, check_entry_point, check_file_name, check_subject
 from .model import Fact, Limits, Report, ReportError
@@ -48,7 +47,7 @@ _SCHEMA_LOCATIONS = frozenset(
 _DIMENSION_MEMBERS = frozenset({"explicitMember", "typedMember"})
 # Dimensions that decide a monetary fact's currency (rule 3.1).
 _CURRENCY_DIMENSIONS = (":CCA", ":qAEA", ":CUS", ":CUA")
-_PLAIN_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_PLAIN_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _DECLARATION = re.compile(rb"<\?xml\s([^?]*)\?>")
 _PSEUDO_ATTRIBUTE = re.compile(rb"""(\w+)\s*=\s*["']([^"']*)["']""")
 _CURRENCY_CODE = re.compile(r"[A-Z]{3}")
@@ -166,7 +165,7 @@ def read_xbrl_xml(
 
 
 def _frozen(mapping: dict[str, str]) -> Mapping[str, str]:
-    return MappingProxyType(mapping) if mapping else EMPTY_MAPPING
+    return FrozenDict(mapping) if mapping else EMPTY_MAPPING
 
 
 class _ForbiddenAttributeScanner:
