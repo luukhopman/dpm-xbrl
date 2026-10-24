@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://luukhopman.github.io/dpm-xbrl/"><img src="https://luukhopman.github.io/dpm-xbrl/assets/logo.svg" alt="" width="96" height="96"></a>
+</p>
+
 # dpm-xbrl
 
 Read and write EBA-style regulatory XBRL reports in both serializations,
