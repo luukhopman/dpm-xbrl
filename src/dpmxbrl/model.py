@@ -40,12 +40,26 @@ class ReportError(ValueError):
         self.problems: tuple[str, ...] = tuple(problems) or (message,)
 
     def __reduce__(self) -> tuple[Any, ...]:
-        """Pickle with the problems.
+        """Pickle with the problems, for subclasses too.
 
         Returns:
-            tuple: The class, its message and the problems as state.
+            tuple: A function that rebuilds the error from its class, message
+            and problems, whatever arguments the subclass takes.
         """
-        return (type(self), (str(self),), {"problems": self.problems})
+        return (_rebuild_error, (type(self), str(self), self.problems))
+
+
+def _rebuild_error(
+    cls: type[ReportError], message: str, problems: tuple[str, ...]
+) -> ReportError:
+    """Rebuild a pickled ReportError or subclass without its ``__init__``.
+
+    Returns:
+        ReportError: The error, with its message and problems.
+    """
+    error = cls.__new__(cls)
+    ReportError.__init__(error, message, problems=problems)
+    return error
 
 
 @dataclass(frozen=True, slots=True)

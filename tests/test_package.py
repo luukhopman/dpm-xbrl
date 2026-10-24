@@ -155,3 +155,21 @@ def test_taxonomy_zips_are_limited(tmp_path: Path) -> None:
             taxonomy_packages=[package],
             limits=Limits(max_total_size=5_000),
         )
+
+
+def test_report_errors_pickle_with_their_problems() -> None:
+    import pickle  # ruff: ignore[suspicious-pickle-import]
+
+    from dpmxbrl._package import DamagedEntryError
+    from dpmxbrl.frames import MetadataTablesError
+
+    errors = [
+        ReportError("one", problems=("one", "two")),
+        DamagedEntryError("p.zip", "reports/a.csv", ValueError("bad")),
+        MetadataTablesError("needs read_xbrl_csv"),
+    ]
+    for error in errors:
+        restored = pickle.loads(pickle.dumps(error))  # ruff: ignore[suspicious-pickle-usage]
+        assert type(restored) is type(error)
+        assert str(restored) == str(error)
+        assert restored.problems == error.problems
