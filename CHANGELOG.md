@@ -44,12 +44,24 @@ All notable changes to this project are documented here. The project follows
   rule (`unexpectedFile`, a warning).
 - `ReportError.problems` lists every problem; reading xBRL-CSV tables
   collects up to 100 row-length, quoting and header problems before failing.
+- With taxonomy packages, decimals are checked against the accuracy
+  requirements per data type (2.18).
+- xBRL-CSV tables must hold every column their metadata defines (rule 2)
+  and a value in each key column of a reported fact (rule 4).
+- Taxonomy packages may be one ZIP holding the packages, as the EBA
+  publishes them.
+- `dpmxbrl.filing.CHECKED_RULES` lists the findings each reader can record,
+  without and with taxonomy packages.
+- `SkippedFacts`, the type `write_xbrl_csv` returns.
 - The public API is documented: every name in the `__all__` of `dpmxbrl`,
   `dpmxbrl.filing` and `dpmxbrl.frames`, and how table codes map to filing
   indicators.
 
 ### Changed
 
+- **Breaking:** `write_xbrl_csv` to a path names the package's root folder
+  as the ZIP file, without `.zip`, as the EBA filing rules ask;
+  `default_package_root` still names it for streams.
 - **Breaking:** the `dimensions`, `typed_dimensions` and `keys` mappings of
   facts that are read are read-only `dict`s that facts may share; assigning
   to one raises `TypeError`, so copy it with `dict()` to change it. They
@@ -63,6 +75,7 @@ All notable changes to this project are documented here. The project follows
 
 ### Fixed
 
+- Unused contexts and units (2.7, 2.22) are listed in document order.
 - `write_xbrl_csv` declares the Report Packages 1.0 type
   `https://xbrl.org/report-package/2023` that EBA packages use; the
   `/2023/xbrl-csv` it wrote before is not a defined type, and other tools
