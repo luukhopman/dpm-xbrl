@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The project follows
 
 ## Unreleased
 
+### Added
+
+- `dpm-xbrl inspect --fail-on error|warning` exits with status 2 when the
+  report breaks a filing rule of that severity; `--version`, and examples in
+  `--help`.
+
 ### Changed
 
 - The `dimensions`, `typed_dimensions` and `keys` mappings of facts that are

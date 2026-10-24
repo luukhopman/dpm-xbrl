@@ -91,3 +91,25 @@ def test_errors_exit_with_status_1(
 
     assert main([argument.format(**values) for argument in arguments]) == 1
     assert "error: " in capsys.readouterr().err
+
+
+def test_inspect_fails_on_broken_filing_rules(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / "instance.xbrl"
+    path.write_text(XML_INSTANCE)
+    assert {item.severity for item in read_report(path).filing} == {
+        "error",
+        "warning",
+    }
+    assert main(["inspect", str(path)]) == 0
+    assert main(["inspect", str(path), "--fail-on", "warning"]) == 2
+    assert main(["inspect", str(path), "--fail-on", "error"]) == 2
+    output = capsys.readouterr().out
+    assert "(none)" not in output
+
+
+def test_version(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(["--version"])
+    assert capsys.readouterr().out.startswith("dpm-xbrl ")

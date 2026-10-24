@@ -264,16 +264,36 @@ cover these round trips.
 ## CLI
 
 ```
-dpm-xbrl inspect PATH [--json] [--taxonomy-package ZIP ...]
+dpm-xbrl inspect PATH [--json] [--fail-on error|warning] [--taxonomy-package ZIP ...]
 dpm-xbrl convert IN OUT [--taxonomy-package ZIP ...]
-                           [--typed-domain DIMENSION=ELEMENT ...] [--root NAME]
+                        [--typed-domain DIMENSION=ELEMENT ...] [--root NAME]
+dpm-xbrl --version
 ```
 
 `inspect` prints the format, entry point, entity, reference date, base
 currency, filing indicators (reported of total), the fact count per template,
 the warnings and the EBA filing rules the report breaks. `convert` chooses the output format from the suffix: `.zip`
 writes xBRL-CSV, `.xbrl` or `.xml` writes XBRL-XML. Errors print `error: ...`
-and exit with status 1.
+and exit with status 1. With `--fail-on`, `inspect` exits with status 2 when
+the report breaks a filing rule of that severity (`warning` includes errors),
+so a pipeline can stop on reports the EBA would reject.
+
+```text
+$ dpm-xbrl inspect EBA-COREP_OF.xbrl
+Format:            xbrl-xml
+Entry point:       http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.2/mod/corep_of.xsd
+Entity:            DUMMYLEI123456789012.CON (https://eurofiling.info/eu/rs)
+Reference date:    2026-12-31
+Base currency:     iso4217:EUR
+Filing indicators: 63 reported of 63
+Facts:             21314
+Warnings: 0
+EBA filing rules broken: 1 must be fixed, 3 recommended
+  - [warning] 2.7 The report should not repeat a context with the same content.
+  - [error] 2.8 DUMMYLEI123456789012 in the reporting subject DUMMYLEI123456789012.CON is not a valid LEI (20 characters ending in two check digits, ISO 17442).
+  - [warning] 3.4 The report should not declare namespace prefixes it does not use. (5 times)
+  - [warning] File naming The file name does not follow ReportSubject_Country_FrameworkCodeModuleVersion_Module_ReferenceDate_CreationTimestamp, the structure for reports sent to the EBA.
+```
 
 ## Stability
 

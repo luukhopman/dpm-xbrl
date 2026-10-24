@@ -7,6 +7,7 @@ import json
 import sys
 from collections import Counter
 from collections.abc import Sequence
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -72,7 +73,7 @@ def _print_summary(summary: dict[str, Any]) -> None:
     for label, value in rows:
         print(f"{label + ':':<{width}} {value}")
     per_template = summary["facts_per_template"]
-    if per_template:
+    if per_template and list(per_template) != ["(none)"]:
         name_width = max(len(name) for name in per_template)
         for name, count in per_template.items():
             print(f"  {name:<{name_width}}  {count}")
@@ -111,20 +112,47 @@ def _typed_domains(values: Sequence[str]) -> dict[str, str]:
     return result
 
 
+_EPILOG = """examples:
+  dpm-xbrl inspect report.zip
+  dpm-xbrl inspect instance.xbrl --json
+  dpm-xbrl inspect report.zip --fail-on error
+  dpm-xbrl convert report.zip instance.xbrl --taxonomy-package taxonomy.zip"""
+
+
+def _version() -> str:
+    try:
+        return version("dpm-xbrl")
+    except PackageNotFoundError:  # pragma: no cover - running from a checkout
+        return "unknown"
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="dpm-xbrl",
         description="Inspect and convert EBA xBRL-CSV and XBRL-XML reports.",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
     commands = parser.add_subparsers(dest="command", required=True)
-    inspect = commands.add_parser("inspect", help="summarize a report")
-    inspect.add_argument("path", type=Path)
+    inspect = commands.add_parser(
+        "inspect", help="summarize a report and the EBA filing rules it breaks"
+    )
+    inspect.add_argument(
+        "path", type=Path, help="report package (.zip), directory or XML instance"
+    )
     inspect.add_argument("--json", action="store_true", help="print JSON")
+    inspect.add_argument(
+        "--fail-on",
+        choices=("error", "warning"),
+        help="exit with status 2 when the report breaks a filing rule of this "
+        "severity or worse",
+    )
     convert = commands.add_parser(
         "convert", help="convert a report (.zip -> xBRL-CSV, .xbrl/.xml -> XML)"
     )
-    convert.add_argument("input", type=Path)
-    convert.add_argument("output", type=Path)
+    convert.add_argument("input", type=Path, help="report to read")
+    convert.add_argument("output", type=Path, help="file to write")
     convert.add_argument(
         "--typed-domain",
         action="append",
@@ -149,7 +177,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the ``dpm-xbrl`` command.
 
     Returns:
-        int: Process exit status; 1 when the report cannot be processed.
+        int: Process exit status: 1 when the report cannot be processed, 2
+        when ``inspect --fail-on`` finds a filing rule broken.
     """
     arguments = _parser().parse_args(argv)
     try:
@@ -162,7 +191,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(json.dumps(summary, indent=2, ensure_ascii=False))
             else:
                 _print_summary(summary)
-            return 0
+            failing = (
+                {"error"} if arguments.fail_on == "error" else {"error", "warning"}
+            )
+            broken = arguments.fail_on and any(
+                item.severity in failing for item in report.filing
+            )
+            return 2 if broken else 0
         suffix = arguments.output.suffix.casefold()
         if suffix not in {".zip", ".xbrl", ".xml"}:
             print(
