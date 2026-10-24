@@ -10,9 +10,11 @@ directory holding the sample reports from ``docs/samples``:
   expected output (stdout and stderr, as a terminal shows them);
   ``$ echo $?`` prints the previous command's exit status.
 
-``<!-- docs: skip -->`` on the line before a block leaves it out. Pages that
-import ``polars`` are skipped when it is not installed (``uv sync`` installs
-it with the ``docs`` group).
+``<!-- docs: skip -->`` on the line before a block leaves it out, with its
+output. Without polars (a core-only install, or a Python that polars does not
+support yet), ``<!-- docs: requires-polars -->`` before a block leaves it out
+the same way, and a page whose front matter has ``requires: polars`` is
+skipped; so are pages whose code fails to import polars.
 
 The docstring examples of every public module run as doctests, in the same
 kind of directory, and the committed samples must match their generator.
@@ -29,6 +31,7 @@ import re
 import shlex
 import shutil
 from dataclasses import dataclass
+from importlib.util import find_spec
 from pathlib import Path
 
 import pytest
@@ -44,6 +47,7 @@ PAGES = [
     ROOT / "README.md",
 ]
 OPTIONAL_MODULES = {"polars"}
+PAGE_REQUIRES_POLARS = re.compile(r"\A---\n(?:.*\n)*?requires: polars\n(?:.*\n)*?---\n")
 FENCE = re.compile(r"^(?P<indent> *)```(?P<lang>[\w-]*)[^\n]*$")
 MARKER = re.compile(r"^\s*<!-- docs: (?P<marker>[\w-]+) -->\s*$")
 
@@ -151,11 +155,19 @@ def samples_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 @pytest.mark.parametrize("path", PAGES, ids=lambda path: str(path.relative_to(ROOT)))
 @pytest.mark.usefixtures("samples_directory")
 def test_page_examples(path: Path) -> None:
+    if PAGE_REQUIRES_POLARS.search(path.read_text(encoding="utf-8")):
+        pytest.importorskip("polars")
     namespace: dict[str, object] = {"__name__": "__docs__"}
     last_output: str | None = None
+    skipped = False
     for block in blocks(path):
         where = f"{path.relative_to(ROOT)}:{block.line}"
-        if block.marker == "skip":
+        if block.lang == "text" and block.follows_python and skipped:
+            continue  # the output of a skipped block
+        skipped = block.marker == "skip" or (
+            block.marker == "requires-polars" and find_spec("polars") is None
+        )
+        if skipped:
             last_output = None
             continue
         if block.lang == "python":

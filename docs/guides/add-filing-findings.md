@@ -109,6 +109,7 @@ messages as `read_report`:
 [`SPECIAL_KEY_VALUE`][dpmxbrl.filing.SPECIAL_KEY_VALUE].
 
 
+<!-- docs: requires-polars -->
 ```python
 import polars as pl
 

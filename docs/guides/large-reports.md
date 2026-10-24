@@ -1,4 +1,5 @@
 ---
+requires: polars
 description: Read xBRL-CSV packages with millions of facts into polars frames with read_xbrl_csv_frames, map rows back to files and process tables as they arrive.
 ---
 
