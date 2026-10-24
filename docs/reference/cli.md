@@ -86,7 +86,7 @@ fixed" and warnings as "recommended":
 $ dpm-xbrl inspect instance.xbrl
 Format:            xbrl-xml
 Entry point:       http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.2/mod/corep_le.xsd
-Entity:            529900T8BM49AURSDO55.CON (https://eurofiling.info/eu/rs)
+Entity:            SYNTHETICDPMXL000002.CON (https://eurofiling.info/eu/rs)
 Reference date:    2025-12-31
 Base currency:     iso4217:EUR
 Filing indicators: 2 reported of 3

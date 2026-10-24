@@ -13,7 +13,7 @@ the older form, still found in earlier submissions and archives.
 A report package is a ZIP with one top-level folder:
 
 ```text
-529900T8BM49AURSDO55.CON_FR_COREP030300_COREPLE_2025-12-31_20260115093000000/
+SYNTHETICDPMXL000002.CON_FR_COREP030300_COREPLE_2025-12-31_20260115093000000/
   META-INF/reportPackage.json      the package type
   reports/report.json              documentInfo: extends the taxonomy entry point
   reports/parameters.csv           entityID, refPeriod, baseCurrency, decimals*

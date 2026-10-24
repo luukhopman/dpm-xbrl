@@ -173,7 +173,7 @@ def default_package_root(report: Report) -> str:
     Examples:
         >>> from dpmxbrl import default_package_root, read_report
         >>> default_package_root(read_report("report.zip"))
-        '529900T8BM49AURSDO55.CON_2025-12-31'
+        'SYNTHETICDPMXL000002.CON_2025-12-31'
     """
     parts = [
         part

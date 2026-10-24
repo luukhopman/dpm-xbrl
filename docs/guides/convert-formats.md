@@ -127,7 +127,7 @@ print(default_package_root(original))
 ```
 
 ```text
-529900T8BM49AURSDO55.CON_2025-12-31
+SYNTHETICDPMXL000002.CON_2025-12-31
 ```
 
 EBA file naming wants the folder to match the ZIP's file name without
@@ -156,7 +156,7 @@ print(read_report(buffer.getvalue()).entity_id)
 ```
 
 ```text
-529900T8BM49AURSDO55.CON
+SYNTHETICDPMXL000002.CON
 ```
 
 ## What is not kept

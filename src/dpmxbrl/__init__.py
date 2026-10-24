@@ -7,7 +7,7 @@ Examples:
     >>> from dpmxbrl import read_report
     >>> report = read_report("report.zip")
     >>> report.format, report.entity_id, len(report.facts)
-    ('xbrl-csv', '529900T8BM49AURSDO55.CON', 14)
+    ('xbrl-csv', 'SYNTHETICDPMXL000002.CON', 14)
 """
 
 from ._version import __version__

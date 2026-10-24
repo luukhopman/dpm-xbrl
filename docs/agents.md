@@ -32,7 +32,7 @@ except ReportError as error:  # the only exception for bad input
     raise SystemExit(f"cannot read: {error}")
 
 report.format  # "xbrl-csv" or "xbrl-xml"
-report.entity_id  # "529900T8BM49AURSDO55.CON"
+report.entity_id  # "SYNTHETICDPMXL000002.CON"
 report.reference_date  # datetime.date(2025, 12, 31)
 report.filing_indicators  # {"C_26.00": True, ...}
 report.parameters  # {"refPeriod": "2025-12-31", ...}; xBRL-CSV only

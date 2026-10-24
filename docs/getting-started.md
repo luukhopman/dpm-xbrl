@@ -69,7 +69,7 @@ CSV file is one table of facts.
 $ dpm-xbrl inspect report.zip
 Format:            xbrl-csv
 Entry point:       http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.2/mod/corep_le.json
-Entity:            529900T8BM49AURSDO55.CON (https://eurofiling.info/eu/rs)
+Entity:            SYNTHETICDPMXL000002.CON (https://eurofiling.info/eu/rs)
 Reference date:    2025-12-31
 Base currency:     iso4217:EUR
 Filing indicators: 4 reported of 5
@@ -105,7 +105,7 @@ print(report.filing_indicators)
 ```
 
 ```text
-xbrl-csv 529900T8BM49AURSDO55.CON 2025-12-31
+xbrl-csv SYNTHETICDPMXL000002.CON 2025-12-31
 {'C_00.01': True, 'C_26.00': True, 'C_27.00': True, 'C_28.00': True, 'C_29.00': False}
 ```
 
@@ -185,7 +185,7 @@ them with `--fail-on`, which exits with status 3:
 $ dpm-xbrl inspect needs_fixes.zip --fail-on error
 Format:            xbrl-csv
 Entry point:       http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.2/mod/corep_le.json
-Entity:            529900T8BM49AURSDO55.CON (https://eurofiling.info/eu/rs)
+Entity:            SYNTHETICDPMXL000002.CON (https://eurofiling.info/eu/rs)
 Reference date:    2025-12-31
 Base currency:     iso4217:EUR
 Filing indicators: 4 reported of 5

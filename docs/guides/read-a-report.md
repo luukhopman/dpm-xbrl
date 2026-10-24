@@ -64,12 +64,12 @@ Uploads and message queues hand over bytes. Pass them directly, with
 from pathlib import Path
 
 data = Path("report.zip").read_bytes()
-report = read_report(data, name="529900T8BM49AURSDO55.CON_upload.zip")
+report = read_report(data, name="SYNTHETICDPMXL000002.CON_upload.zip")
 print(report.filing[0].examples)
 ```
 
 ```text
-('529900T8BM49AURSDO55.CON_upload.zip',)
+('SYNTHETICDPMXL000002.CON_upload.zip',)
 ```
 
 The name matters for the EBA file-naming rule, which checks the file name.

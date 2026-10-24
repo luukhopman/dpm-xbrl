@@ -61,7 +61,7 @@ order does not matter. The same works from the command line with
 $ dpm-xbrl inspect described.zip --taxonomy-package taxonomy.zip
 Format:            xbrl-csv
 Entry point:       http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.0/mod/corep_of.json
-Entity:            529900T8BM49AURSDO55.CON (https://eurofiling.info/eu/rs)
+Entity:            SYNTHETICDPMXL000002.CON (https://eurofiling.info/eu/rs)
 Reference date:    2024-12-31
 Base currency:     iso4217:EUR
 Filing indicators: 2 reported of 3

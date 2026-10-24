@@ -555,7 +555,7 @@ def check_file_name(name: str, report: Report, log: FilingLog) -> None:
         >>> from dpmxbrl.filing import FilingLog, check_file_name
         >>> log = FilingLog()
         >>> name = (
-        ...     "529900T8BM49AURSDO55.CON_FR_COREP030300_COREPLE_"
+        ...     "SYNTHETICDPMXL000002.CON_FR_COREP030300_COREPLE_"
         ...     "2025-12-31_20260115093000000.zip"
         ... )
         >>> check_file_name(name, read_report("report.zip"), log)

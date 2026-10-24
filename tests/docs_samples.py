@@ -31,7 +31,7 @@ from tests.support import (
 SAMPLES = Path(__file__).resolve().parent.parent / "docs" / "samples"
 
 ENTRY_POINT = "http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.2/mod/corep_le.json"
-SUBJECT = "529900T8BM49AURSDO55.CON"
+SUBJECT = "SYNTHETICDPMXL000002.CON"
 
 
 def _zip(files: Mapping[str, str | bytes], *, root: str) -> bytes:

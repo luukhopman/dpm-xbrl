@@ -18,13 +18,13 @@
   </find:fIndicators>
   <xbrli:context id="c0">
     <xbrli:entity>
-      <xbrli:identifier scheme="https://eurofiling.info/eu/rs">529900T8BM49AURSDO55.CON</xbrli:identifier>
+      <xbrli:identifier scheme="https://eurofiling.info/eu/rs">SYNTHETICDPMXL000002.CON</xbrli:identifier>
     </xbrli:entity>
     <xbrli:period><xbrli:instant>2025-12-31</xbrli:instant></xbrli:period>
   </xbrli:context>
   <xbrli:context id="c1">
     <xbrli:entity>
-      <xbrli:identifier scheme="https://eurofiling.info/eu/rs">529900T8BM49AURSDO55.CON</xbrli:identifier>
+      <xbrli:identifier scheme="https://eurofiling.info/eu/rs">SYNTHETICDPMXL000002.CON</xbrli:identifier>
     </xbrli:entity>
     <xbrli:period><xbrli:instant>2025-12-31</xbrli:instant></xbrli:period>
     <xbrli:scenario>

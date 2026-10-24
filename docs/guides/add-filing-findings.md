@@ -172,7 +172,7 @@ report = read_report("report.zip")
 log = FilingLog()
 check_subject(dataclasses.replace(report, entity_id="529900t8bm49aursdo55.CON"), log)
 check_file_name(
-    "529900T8BM49AURSDO55.CON_FR_COREP030300_COREPLE_2025-12-31.zip", report, log
+    "SYNTHETICDPMXL000002.CON_FR_COREP030300_COREPLE_2025-12-31.zip", report, log
 )
 check_entry_point(["corep_le.json"], log, where="report.json", xml=False)
 for finding in log.result():

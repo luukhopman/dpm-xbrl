@@ -141,7 +141,7 @@ module and reference date. Read bytes with the final name to check it:
 from pathlib import Path
 
 name = (
-    "529900T8BM49AURSDO55.CON_FR_COREP030300_COREPLE_2025-12-31_20260115093000000.zip"
+    "SYNTHETICDPMXL000002.CON_FR_COREP030300_COREPLE_2025-12-31_20260115093000000.zip"
 )
 renamed = read_report(Path("report.zip").read_bytes(), name=name)
 print([finding.code for finding in renamed.filing])

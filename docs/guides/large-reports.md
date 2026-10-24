@@ -123,7 +123,7 @@ frames = read_xbrl_csv_frames("report.zip", on_metadata=on_metadata, on_table=on
 ```
 
 ```text
-header: 529900T8BM49AURSDO55.CON ['C_00.01', 'C_26.00', 'C_27.00', 'C_28.00', 'C_29.00']
+header: SYNTHETICDPMXL000002.CON ['C_00.01', 'C_26.00', 'C_27.00', 'C_28.00', 'C_29.00']
 table: c_00.01 2 ()
 table: c_26.00 4 ()
 table: c_27.00 4 ()
@@ -200,7 +200,7 @@ $ dpm-xbrl inspect report.zip --columnar
 note: --columnar checks special fact values only; key values and decimals suffixes are not checked
 Format:            xbrl-csv
 Entry point:       http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.2/mod/corep_le.json
-Entity:            529900T8BM49AURSDO55.CON (https://eurofiling.info/eu/rs)
+Entity:            SYNTHETICDPMXL000002.CON (https://eurofiling.info/eu/rs)
 Reference date:    2025-12-31
 Base currency:     iso4217:EUR
 Filing indicators: 4 reported of 5

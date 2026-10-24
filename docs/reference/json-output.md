@@ -15,7 +15,7 @@ $ dpm-xbrl inspect instance.xbrl --json
   "format": "xbrl-xml",
   "entry_point": "http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.2/mod/corep_le.xsd",
   "entity_scheme": "https://eurofiling.info/eu/rs",
-  "entity_id": "529900T8BM49AURSDO55.CON",
+  "entity_id": "SYNTHETICDPMXL000002.CON",
   "reference_date": "2025-12-31",
   "base_currency": "iso4217:EUR",
   "filing_indicators": {

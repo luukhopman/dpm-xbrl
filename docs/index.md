@@ -40,7 +40,7 @@ for fact in report.facts_for_template("C_28.00"):
 ```
 
 ```text
-529900T8BM49AURSDO55.CON 2025-12-31 14
+SYNTHETICDPMXL000002.CON 2025-12-31 14
 dp5488013 {'qINC': 'CP0001'} 67129000
 dp5488014 {'qINC': 'CP0001'} 60309000
 dp5488013 {'qINC': 'CP0002'} 41250000
@@ -53,7 +53,7 @@ The same report from the command line, with the filing rules it breaks:
 $ dpm-xbrl inspect report.zip
 Format:            xbrl-csv
 Entry point:       http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.2/mod/corep_le.json
-Entity:            529900T8BM49AURSDO55.CON (https://eurofiling.info/eu/rs)
+Entity:            SYNTHETICDPMXL000002.CON (https://eurofiling.info/eu/rs)
 Reference date:    2025-12-31
 Base currency:     iso4217:EUR
 Filing indicators: 4 reported of 5
