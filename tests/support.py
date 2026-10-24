@@ -264,16 +264,72 @@ def metadata_files() -> dict[str, str | bytes]:
     )
 
 
-def taxonomy_package(path: Path) -> Path:
-    """Write a fake EBA taxonomy package with a catalog rewrite."""
+DICT = "www.eba.europa.eu/eu/fr/xbrl/crr/dict/"
+SCHEMA_HEAD = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" '
+    'xmlns:xbrli="http://www.xbrl.org/2003/instance" '
+    'xmlns:xbrldt="http://xbrl.org/2005/xbrldt" '
+    'xmlns:num="http://www.xbrl.org/dtr/type/numeric" '
+)
+DICTIONARY_SCHEMAS = {
+    f"{DICT}dim/dim.xsd": SCHEMA_HEAD
+    + 'xmlns:eba_dim="http://www.eba.europa.eu/xbrl/crr/dict/dim" '
+    'targetNamespace="http://www.eba.europa.eu/xbrl/crr/dict/dim">\n'
+    '  <xs:element name="qINC" id="eba_qINC" substitutionGroup="xbrldt:dimensionItem" '
+    'type="xbrli:stringItemType" xbrldt:typedDomainRef="../dom/typ.xsd#eba_CC"/>\n'
+    '  <xs:element name="qCO" id="eba_qCO" substitutionGroup="xbrldt:dimensionItem" '
+    'type="xbrli:stringItemType"/>\n'
+    "</xs:schema>\n",
+    f"{DICT}dom/typ.xsd": SCHEMA_HEAD
+    + 'xmlns:eba_typ="http://www.eba.europa.eu/xbrl/crr/dict/typ" '
+    'targetNamespace="http://www.eba.europa.eu/xbrl/crr/dict/typ">\n'
+    '  <xs:element name="CC" type="xs:string" id="eba_CC"/>\n'
+    "</xs:schema>\n",
+    f"{DICT}met/met.xsd": SCHEMA_HEAD
+    + 'xmlns:eba_met="http://www.eba.europa.eu/xbrl/crr/dict/met" '
+    'targetNamespace="http://www.eba.europa.eu/xbrl/crr/dict/met">\n'
+    '  <xs:element name="mi53" type="xbrli:monetaryItemType" id="eba_mi53"/>\n'
+    '  <xs:element name="pi1" type="num:percentItemType" id="eba_pi1"/>\n'
+    "</xs:schema>\n",
+}
+ENTRY_POINT_XSD = (
+    "http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.0/mod/corep_of.xsd"
+)
+
+
+def taxonomy_package(
+    path: Path, *, full: bool = False, valid_from: str = "2024-01-01"
+) -> Path:
+    """Write a fake EBA taxonomy package with a catalog rewrite.
+
+    With ``full``, it also lists its entry point, documents the module's
+    first reference date and filing indicator codes, and holds dimension,
+    typed domain and metric schemas.
+    """
+    module = json.loads(module_json())
+    metadata = "<taxonomyPackage/>"
+    if full:
+        module["documentInfo"]["eba:documentation"] = {
+            "FromReferenceDate": valid_from,
+            "toReferenceDate": "",
+        }
+        for code, table in (("C_01.00", "c_01.00"), ("C_27.00", "c_27.00")):
+            module["tables"][table]["eba:documentation"] = {"FilingIndicator": code}
+        metadata = (
+            '<taxonomyPackage xmlns="http://xbrl.org/2016/taxonomy-package">'
+            f'<entryPoints><entryPoint><entryPointDocument href="{ENTRY_POINT_XSD}"/>'
+            "</entryPoint></entryPoints></taxonomyPackage>"
+        )
     files = {
         "META-INF/catalog.xml": catalog_xml(
             {"http://www.eba.europa.eu/eu/fr/xbrl/": "../www.eba.europa.eu/eu/fr/xbrl/"}
         ),
-        "META-INF/taxonomyPackage.xml": "<taxonomyPackage/>",
+        "META-INF/taxonomyPackage.xml": metadata,
         "www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.0/mod/corep_of.json": (
-            module_json()
+            json.dumps(module)
         ),
+        **(DICTIONARY_SCHEMAS if full else {}),
         "www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.0/tab/c_01.00/c_01.00.json": (
             closed_template_json()
         ),
