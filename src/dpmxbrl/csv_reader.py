@@ -80,6 +80,14 @@ _LETTER_PART = re.compile(r"\.[a-z](?=\.|$)", re.IGNORECASE)
 
 MetadataResolver = Callable[[str], bytes | None]
 """Return the bytes of the metadata document at an absolute URL, or ``None``."""
+_MAX_PROBLEMS = 100
+"""Structural table problems collected before the reader gives up."""
+
+
+class _TableError(ReportError):
+    """A table file that cannot be parsed; the reader goes on to the next."""
+
+
 _Ref = tuple[str, str]
 
 
@@ -254,6 +262,7 @@ class _CsvReportReader:
         self._namespaces: dict[str, str] = {}
         self._parameters: dict[str, str] = {}
         self._negative: set[str] = set()
+        self._problems: list[str] = []
 
     def _display(self, name: str) -> str:
         return name.removeprefix(self._root_prefix)
@@ -571,11 +580,11 @@ class _CsvReportReader:
                     if row:
                         yield line, row
             except UnicodeDecodeError as error:
-                raise ReportError(
+                raise _TableError(
                     f"{label}: not valid UTF-8 after line {previous} ({error.reason})"
                 ) from error
             except csv.Error as error:
-                raise ReportError(f"{label}:{reader.line_num}: {error}") from error
+                raise _TableError(f"{label}:{reader.line_num}: {error}") from error
             except DAMAGED_ENTRY_ERRORS as error:
                 raise DamagedEntryError(self._package.label, name, error) from error
 
@@ -774,12 +783,42 @@ class _CsvReportReader:
                     self._display(name),
                 )
             template = metadata.table_templates.get(template_id)
-            if isinstance(template, dict) and isinstance(template.get("columns"), dict):
-                self._read_metadata_table(
-                    name, template_id, template, table_parameters, metadata
-                )
-            else:
-                self._read_convention_table(name, template_id)
+            try:
+                if isinstance(template, dict) and isinstance(
+                    template.get("columns"), dict
+                ):
+                    self._read_metadata_table(
+                        name, template_id, template, table_parameters, metadata
+                    )
+                else:
+                    self._read_convention_table(name, template_id)
+            except _TableError as error:
+                self._problem(str(error))
+        if self._problems:
+            more = len(self._problems) - 1
+            raise ReportError(
+                self._problems[0]
+                + (
+                    f" (and {more} more problem{'' if more == 1 else 's'})"
+                    if more
+                    else ""
+                ),
+                problems=self._problems,
+            )
+
+    def _problem(self, message: str) -> None:
+        """Record a structural table problem, failing once there are too many.
+
+        Raises:
+            ReportError: With every problem so far, at the limit.
+        """
+        self._problems.append(message)
+        if len(self._problems) >= _MAX_PROBLEMS:
+            raise ReportError(
+                f"{self._problems[0]} (and {len(self._problems) - 1} more "
+                "problems; stopped reading)",
+                problems=self._problems,
+            )
 
     def _not_reported(self, template_id: str) -> bool:
         """Check whether a table's template has a negative filing indicator.
@@ -792,13 +831,13 @@ class _CsvReportReader:
     def _header(self, rows: Iterator[tuple[int, list[str]]], display: str) -> list[str]:
         first = next(rows, None)
         if first is None:
-            raise ReportError(f"{display}:1: table file has no header row")
+            raise _TableError(f"{display}:1: table file has no header row")
         header = first[1]
         if any(not column for column in header):
-            raise ReportError(f"{display}:1: table header has an empty column name")
+            raise _TableError(f"{display}:1: table header has an empty column name")
         duplicates = sorted({column for column in header if header.count(column) > 1})
         if duplicates:
-            raise ReportError(
+            raise _TableError(
                 f"{display}:1: duplicate table columns {', '.join(duplicates)}"
             )
         return header
@@ -808,9 +847,10 @@ class _CsvReportReader:
     ) -> Iterator[tuple[int, list[str]]]:
         for line, row in rows:
             if len(row) != width:
-                raise ReportError(
+                self._problem(
                     f"{display}:{line}: expected {width} cells, found {len(row)}"
                 )
+                continue
             yield line, row
 
     def _fact_value(
@@ -870,7 +910,7 @@ class _CsvReportReader:
         rows = self._csv_rows(name)
         header = self._header(rows, display)
         if "datapoint" not in header or "factValue" not in header:
-            raise ReportError(
+            raise _TableError(
                 f"{display}:1: table header must contain 'datapoint' and "
                 f"'factValue' columns, found {','.join(header)!r}"
             )
