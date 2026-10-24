@@ -137,7 +137,8 @@ _EPILOG = """examples:
   dpm-xbrl inspect report.zip
   dpm-xbrl inspect instance.xbrl --json
   dpm-xbrl inspect report.zip --fail-on error
-  dpm-xbrl convert report.zip instance.xbrl --taxonomy-package taxonomy.zip"""
+  dpm-xbrl convert report.zip instance.xbrl --taxonomy-package taxonomy.zip
+  dpm-xbrl convert instance.xbrl report.zip --taxonomy-package taxonomy.zip"""
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -183,6 +184,12 @@ def _parser() -> argparse.ArgumentParser:
         help="typed domain element for a typed dimension (XML output)",
     )
     convert.add_argument("--root", help="top-level folder name (xBRL-CSV output)")
+    convert.add_argument(
+        "--skip-unmapped",
+        action="store_true",
+        help="leave out, and list, facts the taxonomy packages cannot place in a "
+        "table instead of failing (xBRL-CSV output)",
+    )
     for command in (inspect, convert):
         limits = command.add_argument_group(
             "limits",
@@ -201,7 +208,9 @@ def _parser() -> argparse.ArgumentParser:
             default=[],
             type=Path,
             metavar="ZIP",
-            help="local taxonomy package used to resolve xBRL-CSV metadata",
+            help="local taxonomy package: resolves xBRL-CSV metadata, adds the "
+            "checks that need the taxonomy, and places XML facts in tables or "
+            "gives typed domains when converting",
         )
     return parser
 
@@ -319,10 +328,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         for warning in report.warnings:
             print(f"warning: {warning}", file=sys.stderr)
+        packages = arguments.taxonomy_package
         if suffix == ".zip":
-            write_xbrl_csv(report, arguments.output, root=arguments.root)
+            skipped = write_xbrl_csv(
+                report,
+                arguments.output,
+                root=arguments.root,
+                taxonomy_packages=packages,
+                strict=not arguments.skip_unmapped,
+                limits=_limits(arguments),
+            )
+            if skipped:
+                print(
+                    f"warning: {len(skipped)} fact"
+                    f"{'' if len(skipped) == 1 else 's'} left out:",
+                    file=sys.stderr,
+                )
+                for fact, reason in skipped:
+                    print(f"  {fact.location}: {reason}", file=sys.stderr)
         else:
-            write_xbrl_xml(report, arguments.output, typed_domains=typed_domains)
+            write_xbrl_xml(
+                report,
+                arguments.output,
+                typed_domains=typed_domains,
+                taxonomy_packages=packages,
+                limits=_limits(arguments),
+            )
     except (ReportError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
         message = str(error)

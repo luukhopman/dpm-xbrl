@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from xml.parsers import expat
 
 from .model import ReportError
@@ -112,3 +113,132 @@ def parse_catalog_rewrites(data: bytes, label: str) -> list[tuple[str, str]]:
             f"{label}:{error.lineno}: invalid XML catalog ({reason})"
         ) from error
     return rewrites
+
+
+def _parser(label: str) -> expat.XMLParserType:
+    """Return a namespace-aware parser that rejects entity declarations.
+
+    Returns:
+        expat.XMLParserType: Names are reported as ``uri local``.
+    """
+    parser = expat.ParserCreate(namespace_separator=" ")
+    parser.SetParamEntityParsing(expat.XML_PARAM_ENTITY_PARSING_NEVER)
+
+    def reject_entity(*_: object) -> None:
+        raise ReportError(f"{label}: ENTITY declarations are not allowed")
+
+    parser.EntityDeclHandler = reject_entity
+    return parser
+
+
+def _run(parser: expat.XMLParserType, data: bytes, label: str, what: str) -> None:
+    try:
+        parser.Parse(data, True)
+    except expat.ExpatError as error:
+        reason = expat.errors.messages[error.code]
+        raise ReportError(
+            f"{label}:{error.lineno}: invalid {what} ({reason})"
+        ) from error
+
+
+def parse_entry_points(data: bytes, label: str) -> list[str]:
+    """Read the entry point document URLs of a ``taxonomyPackage.xml``.
+
+    Returns:
+        list[str]: The ``entryPointDocument`` ``href`` values.
+
+    Raises:
+        ReportError: If the file is not well-formed or declares entities.
+    """
+    found: list[str] = []
+    parser = _parser(label)
+
+    def start(name: str, attributes: dict[str, str]) -> None:
+        if name.rpartition(" ")[2] == "entryPointDocument" and attributes.get("href"):
+            found.append(attributes["href"])
+
+    parser.StartElementHandler = start
+    _run(parser, data, label, "taxonomy package metadata")
+    return found
+
+
+@dataclass(slots=True)
+class ParsedSchema:
+    """The parts of an XML schema the taxonomy lookups use."""
+
+    namespace: str = ""
+    prefix: str | None = None
+    elements: dict[str, dict[str, str]] = field(default_factory=dict)
+    ids: dict[str, str] = field(default_factory=dict)
+
+
+_XSD = "http://www.w3.org/2001/XMLSchema"
+_QNAME_ATTRIBUTES = frozenset({"type", "substitutionGroup"})
+
+
+def parse_schema(data: bytes, label: str) -> ParsedSchema:
+    """Read the target namespace, its prefix and global elements of a schema.
+
+    Returns:
+        ParsedSchema: Element attributes keyed by element name; ``type`` and
+        ``substitutionGroup`` values and namespaced attribute names are in
+        Clark notation.
+
+    Raises:
+        ReportError: If the schema is not well-formed or declares entities.
+    """
+    result = ParsedSchema()
+    parser = _parser(label)
+    scope: list[dict[str, str]] = []
+    pending: dict[str, str] = {}
+
+    def clark(value: str) -> str:
+        prefix, separator, local = value.partition(":")
+        if not separator:
+            prefix, local = "", value
+        for frame in reversed(scope):
+            if prefix in frame:
+                return f"{{{frame[prefix]}}}{local}" if frame[prefix] else local
+        return value
+
+    def start(name: str, attributes: dict[str, str]) -> None:
+        nonlocal pending
+        scope.append(pending)
+        pending = {}
+        uri, _, local = name.rpartition(" ")
+        depth = len(scope)
+        if depth == 1 and local == "schema":
+            result.namespace = attributes.get("targetNamespace", "")
+            result.prefix = next(
+                (
+                    prefix
+                    for prefix, bound in scope[0].items()
+                    if prefix and bound == result.namespace
+                ),
+                None,
+            )
+        elif depth == 2 and uri == _XSD and local == "element" and "name" in attributes:
+            values: dict[str, str] = {}
+            for key, value in attributes.items():
+                namespace, _, attribute = key.rpartition(" ")
+                if namespace:
+                    values[f"{{{namespace}}}{attribute}"] = value
+                else:
+                    values[attribute] = (
+                        clark(value) if attribute in _QNAME_ATTRIBUTES else value
+                    )
+            result.elements[attributes["name"]] = values
+            if "id" in attributes:
+                result.ids[attributes["id"]] = attributes["name"]
+
+    def end(_: str) -> None:
+        scope.pop()
+
+    def start_namespace(prefix: str | None, uri: str | None) -> None:
+        pending[prefix or ""] = uri or ""
+
+    parser.StartNamespaceDeclHandler = start_namespace
+    parser.StartElementHandler = start
+    parser.EndElementHandler = end
+    _run(parser, data, label, "schema")
+    return result

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 ReportFormat = Literal["xbrl-csv", "xbrl-xml"]
 Severity = Literal["error", "warning"]
@@ -19,6 +19,10 @@ class ReportError(ValueError):
     Every unreadable, unsafe or over-limit input raises it, with a message
     that names the file and, where known, the line or entry.
 
+    Attributes:
+        problems: Every problem found, one message each; an error about a
+            single problem holds its own message.
+
     Examples:
         >>> from dpmxbrl import ReportError, read_report
         >>> try:
@@ -26,7 +30,21 @@ class ReportError(ValueError):
         ... except ReportError as error:
         ...     print(error)
         missing.zip: no such file or directory
+
     """
+
+    def __init__(self, message: str, *, problems: Sequence[str] = ()) -> None:
+        """Create an error with a message and, optionally, all its problems."""
+        super().__init__(message)
+        self.problems: tuple[str, ...] = tuple(problems) or (message,)
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Pickle with the problems.
+
+        Returns:
+            tuple: The class, its message and the problems as state.
+        """
+        return (type(self), (str(self),), {"problems": self.problems})
 
 
 @dataclass(frozen=True, slots=True)
