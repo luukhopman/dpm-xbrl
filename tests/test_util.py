@@ -3,6 +3,7 @@ import dataclasses
 import gc
 import json
 import pickle  # ruff: ignore[suspicious-pickle-import]
+from pathlib import Path
 
 import pytest
 
@@ -46,3 +47,27 @@ def test_read_facts_pickle_copy_and_serialize_as_dicts(source: str) -> None:
         json.dumps(dataclasses.asdict(fact))
         with pytest.raises(TypeError, match="read-only"):
             fact.dimensions["x"] = "y"  # ty: ignore[invalid-assignment]
+    json.dumps(dataclasses.asdict(report), default=str)
+    for mapping in (
+        report.parameters,
+        report.decimals_parameters,
+        report.filing_indicators,
+        report.namespaces,
+    ):
+        assert type(copy.copy(mapping)) is dict
+        with pytest.raises(TypeError, match="read-only"):
+            mapping["x"] = "y"  # ty: ignore[invalid-assignment]
+
+
+def test_metadata_facts_have_read_only_mappings(tmp_path: Path) -> None:
+    from tests.support import metadata_files, taxonomy_package, write_zip
+
+    report = read_report(
+        write_zip(tmp_path / "r.zip", metadata_files()),
+        taxonomy_packages=[taxonomy_package(tmp_path / "t.zip")],
+    )
+    assert pickle.loads(pickle.dumps(report)) == report  # ruff: ignore[suspicious-pickle-usage]
+    for fact in report.facts:
+        for mapping in (fact.dimensions, fact.typed_dimensions, fact.keys):
+            with pytest.raises(TypeError, match="read-only"):
+                mapping["x"] = "y"  # ty: ignore[invalid-assignment]

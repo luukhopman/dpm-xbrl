@@ -930,11 +930,11 @@ class _InstanceReader:
             entity_id=identifier,
             reference_date=periods.most_common(1)[0][0] if periods else None,
             base_currency=currencies.most_common(1)[0][0] if currencies else None,
-            parameters={},
-            decimals_parameters={},
-            filing_indicators=dict(self._filing_indicators),
+            parameters=FrozenDict(),
+            decimals_parameters=FrozenDict(),
+            filing_indicators=FrozenDict(self._filing_indicators),
             facts=tuple(facts),
-            namespaces=dict(self._namespaces),
+            namespaces=FrozenDict(self._namespaces),
             warnings=self._warnings.result(),
         )
         check_subject(report, self._filing)

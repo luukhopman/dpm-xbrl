@@ -65,10 +65,11 @@ eba_met:qNCO 'Northwind Holdings' None None instance.xbrl#f3
 
 ## Read-only mappings
 
-`dimensions`, `typed_dimensions` and `keys` of facts that are read are
-read-only `dict`s, and facts may share them. Assigning to one raises
-`TypeError`; copy it with `dict()` to change it. They pickle, copy and
-serialize as plain dicts.
+The mappings of a report that is read are read-only `dict`s: a fact's
+`dimensions`, `typed_dimensions` and `keys`, which facts may share, and the
+report's `parameters`, `decimals_parameters`, `filing_indicators` and
+`namespaces`. Assigning to one raises `TypeError`; copy it with `dict()` to
+change it. They pickle, copy and serialize as plain dicts.
 
 ```python
 fact = instance.facts[2]
@@ -79,7 +80,7 @@ except TypeError as error:
 ```
 
 ```text
-fact mappings are read-only; copy one with dict()
+report and fact mappings are read-only; copy one with dict()
 ```
 
 ## Qnames

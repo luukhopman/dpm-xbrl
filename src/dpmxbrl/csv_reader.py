@@ -33,6 +33,7 @@ from ._package import (
 from ._taxonomy import TaxonomyPackages
 from ._util import (
     EMPTY_MAPPING,
+    FrozenDict,
     WarningLog,
     gc_paused,
     join_url,
@@ -335,11 +336,11 @@ class _CsvReportReader:
             entity_id=entity_id,
             reference_date=reference_date,
             base_currency=self._parameters.get("baseCurrency") or None,
-            parameters=dict(self._parameters),
-            decimals_parameters=decimals_parameters,
-            filing_indicators=filing_indicators,
+            parameters=FrozenDict(self._parameters),
+            decimals_parameters=FrozenDict(decimals_parameters),
+            filing_indicators=FrozenDict(filing_indicators),
             facts=(),
-            namespaces=dict(metadata.namespaces),
+            namespaces=FrozenDict(metadata.namespaces),
         )
         check_subject(header, self._filing)
         self._check_names(header)
@@ -954,7 +955,9 @@ class _CsvReportReader:
                 datapoint = datapoints.setdefault(datapoint, datapoint)
             if key_columns:
                 key_values = tuple(row[index] for index, _ in key_columns)
-                keys: Mapping[str, str] = dict(zip(key_names, key_values, strict=True))
+                keys: Mapping[str, str] = FrozenDict(
+                    zip(key_names, key_values, strict=True)
+                )
                 self._check_keys(keys, location)
             else:
                 key_values = ()
@@ -1083,7 +1086,7 @@ class _CsvReportReader:
             cells = dict(zip(header, row, strict=True))
             key_values = tuple(row[index] for index, _ in key_columns)
             keys: Mapping[str, str] = (
-                dict(zip(key_names, key_values, strict=True))
+                FrozenDict(zip(key_names, key_values, strict=True))
                 if key_columns
                 else EMPTY_MAPPING
             )
@@ -1221,8 +1224,8 @@ class _CsvReportReader:
             concept=concept,
             datapoint=datapoint,
             template=template_id,
-            dimensions=explicit or EMPTY_MAPPING,
-            typed_dimensions=typed or EMPTY_MAPPING,
+            dimensions=FrozenDict(explicit) if explicit else EMPTY_MAPPING,
+            typed_dimensions=FrozenDict(typed) if typed else EMPTY_MAPPING,
             keys=keys,
             unit=unit,
             decimals=decimals,
