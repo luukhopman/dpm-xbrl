@@ -100,9 +100,7 @@ def test_csv_package_layout_is_deterministic(tmp_path: Path) -> None:
         root = "5299000000000000000A_2024-12-31/"
         package = json.loads(archive.read(root + "META-INF/reportPackage.json"))
         assert package == {
-            "documentInfo": {
-                "documentType": "https://xbrl.org/report-package/2023/xbrl-csv"
-            }
+            "documentInfo": {"documentType": "https://xbrl.org/report-package/2023"}
         }
         table = archive.read(root + "reports/c_27.00.csv").decode()
         assert table.splitlines()[0] == "datapoint,factValue,c0010,c0020"

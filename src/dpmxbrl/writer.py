@@ -17,7 +17,7 @@ from .csv_reader import XBRL_CSV_DOCUMENT_TYPE
 from .model import Fact, Report, ReportError
 from .xml_reader import FIND, ISO4217, LINK, XBRLDI, XBRLI, XLINK, XSI
 
-REPORT_PACKAGE_DOCUMENT_TYPE = "https://xbrl.org/report-package/2023/xbrl-csv"
+REPORT_PACKAGE_DOCUMENT_TYPE = "https://xbrl.org/report-package/2023"
 _ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 _KNOWN_SCHEME_PREFIXES = {
     "http://standards.iso.org/iso/17442": "lei",

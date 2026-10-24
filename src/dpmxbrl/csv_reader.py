@@ -49,9 +49,11 @@ XBRL_CSV_DOCUMENT_TYPE = "https://xbrl.org/2021/xbrl-csv"
 REPORT_PACKAGE_DOCUMENT_TYPES = frozenset(
     {
         "https://xbrl.org/report-package/2023",
-        "https://xbrl.org/report-package/2023/xbrl-csv",
+        "https://xbrl.org/report-package/2023/xbr",
     }
 )
+# dpm-xbrl 0.1 wrote this type, which Report Packages 1.0 does not define.
+_LEGACY_PACKAGE_DOCUMENT_TYPE = "https://xbrl.org/report-package/2023/xbrl-csv"
 _DRAFT_DOCUMENT_TYPE = re.compile(
     r"^https?://xbrl\.org/(?:PWD|CR|PR)/20(?:19|20|21)-\d{2}-\d{2}/xbrl-csv$"
 )
@@ -368,7 +370,13 @@ class _CsvReportReader:
         document = load_json_object(self._package.read(name), label)
         info = document.get("documentInfo")
         document_type = info.get("documentType") if isinstance(info, dict) else None
-        if document_type not in REPORT_PACKAGE_DOCUMENT_TYPES:
+        if document_type == _LEGACY_PACKAGE_DOCUMENT_TYPE:
+            self._warnings.add(
+                f"{label}: documentType {document_type} is not a Report Packages "
+                "1.0 type (dpm-xbrl 0.1 wrote it); use "
+                "https://xbrl.org/report-package/2023"
+            )
+        elif document_type not in REPORT_PACKAGE_DOCUMENT_TYPES:
             raise ReportError(
                 f"{label}: unsupported report package documentType "
                 f"{document_type!r}; expected "

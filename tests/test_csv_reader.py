@@ -241,19 +241,24 @@ def test_malformed_input_names_file_and_line(
         read_report(path)
 
 
-def test_report_package_2023_generic_type_is_accepted(tmp_path: Path) -> None:
-    files = closed_files(
-        **{
-            "META-INF/reportPackage.json": json.dumps(
-                {
-                    "documentInfo": {
-                        "documentType": "https://xbrl.org/report-package/2023"
-                    }
-                }
-            )
-        }
-    )
-    assert len(read_report(write_zip(tmp_path / "r.zip", files)).facts) == 2
+@pytest.mark.parametrize(
+    ("document_type", "warned"),
+    [
+        ("https://xbrl.org/report-package/2023", False),
+        ("https://xbrl.org/report-package/2023/xbr", False),
+        ("https://xbrl.org/report-package/2023/xbrl-csv", True),
+    ],
+)
+def test_report_package_document_types(
+    tmp_path: Path, document_type: str, warned: bool
+) -> None:
+    package = json.dumps({"documentInfo": {"documentType": document_type}})
+    files = closed_files(**{"META-INF/reportPackage.json": package})
+    report = read_report(write_zip(tmp_path / "r.zip", files))
+    assert len(report.facts) == 2
+    assert any(
+        "not a Report Packages 1.0 type" in item for item in report.warnings
+    ) is (warned)
 
 
 def test_draft_document_type_is_accepted_with_warning(tmp_path: Path) -> None:

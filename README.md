@@ -71,7 +71,8 @@ path as xBRL-CSV and everything else as XBRL-XML. Every failure raises
 - A ZIP or directory with exactly one `reports/*.json` report (normally
   `reports/report.json`), optionally below one top-level folder, plus an
   optional `META-INF/reportPackage.json` whose `documentType` must be
-  `https://xbrl.org/report-package/2023` or `.../2023/xbrl-csv`. A directory
+  `https://xbrl.org/report-package/2023` or `.../2023/xbr`
+  (`.../2023/xbrl-csv`, which dpm-xbrl 0.1 wrote, is read with a warning). A directory
   may also hold `report.json` directly.
 - `documentInfo.documentType` must be `https://xbrl.org/2021/xbrl-csv`; the
   2019-2021 PWD/CR/PR draft URIs are accepted with a warning. Duplicate JSON

@@ -10,7 +10,7 @@ from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
 CSV_DOCUMENT_TYPE = "https://xbrl.org/2021/xbrl-csv"
-PACKAGE_DOCUMENT_TYPE = "https://xbrl.org/report-package/2023/xbrl-csv"
+PACKAGE_DOCUMENT_TYPE = "https://xbrl.org/report-package/2023"
 ENTRY_POINT = "http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.0/mod/corep_of.json"
 LEI = "http://standards.iso.org/iso/17442"
 NAMESPACES = {

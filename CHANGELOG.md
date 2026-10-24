@@ -24,6 +24,11 @@ All notable changes to this project are documented here. The project follows
 
 ### Fixed
 
+- `write_xbrl_csv` declares the Report Packages 1.0 type
+  `https://xbrl.org/report-package/2023` that EBA packages use; the
+  `/2023/xbrl-csv` it wrote before is not a defined type, and other tools
+  reject it. The reader accepts `/2023` and `/2023/xbr`, and reads the old
+  value with a warning.
 - A DOCTYPE in a UTF-16 instance without a byte order mark is rejected, and
   such an instance breaks filing rule 1.4.
 - Every unreadable input raises `ReportError`: unknown or multi-byte XML
