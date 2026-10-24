@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://luukhopman.github.io/dpm-xbrl/"><img src="https://luukhopman.github.io/dpm-xbrl/assets/logo.svg" alt="" width="96" height="96"></a>
+  <a href="https://luukhopman.github.io/dpm-xbrl/"><img src="https://luukhopman.github.io/dpm-xbrl/assets/logo.svg" alt="dpm-xbrl" width="240"></a>
 </p>
 
 # dpm-xbrl
