@@ -13,7 +13,7 @@ requires-python = ">=3.11"
 authors = [{ name = "Luuk Hopman", email = "github@luukhopman.nl" }]
 keywords = ["EBA", "XBRL", "xBRL-CSV", "regulatory reporting", "report package"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Financial and Insurance Industry",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -38,6 +38,7 @@ dev = [
 Homepage = "https://github.com/luukhopman/dpm-xbrl"
 Source = "https://github.com/luukhopman/dpm-xbrl"
 Issues = "https://github.com/luukhopman/dpm-xbrl/issues"
+Changelog = "https://github.com/luukhopman/dpm-xbrl/blob/main/CHANGELOG.md"
 
 [project.scripts]
 dpm-xbrl = "dpmxbrl.cli:main"

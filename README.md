@@ -6,8 +6,14 @@ It targets reports built on the data point model (DPM) taxonomies of the
 European Banking Authority and is tested on EBA reports. It is an independent
 project, not affiliated with or endorsed by the EBA.
 The package uses only the standard library and needs Python 3.11 or newer.
-The optional `fast` extra adds `isal`, which inflates ZIP entries about twice
-as fast as zlib; the bytes read are the same either way.
+
+```
+pip install dpm-xbrl            # standard library only
+pip install "dpm-xbrl[fast]"    # isal: inflates ZIP entries about twice as fast
+pip install "dpm-xbrl[frames]"  # polars: columnar reading of large reports
+```
+
+The `fast` extra changes speed only; the bytes read are the same either way.
 
 ```python
 from dpmxbrl import read_report
@@ -200,6 +206,28 @@ spaces around key values and special key values are left to callers that
 split values by data type, which can record them with the same messages
 (`DECIMALS_SUFFIX`, `KEY_SPACES`, `SPECIAL_KEY_VALUE` in `dpmxbrl.filing`).
 
+### Columnar reading
+
+```python
+from dpmxbrl.frames import read_xbrl_csv_frames
+
+frames = read_xbrl_csv_frames("report.zip")
+frames.report.reference_date          # the Report, with facts == ()
+frames.tables["c_01.00"]              # polars frame: datapoint, factValue, keys
+```
+
+`read_report` builds one `Fact` per value, which takes about 5 µs and 0.7 KB
+per fact: a report with 7 million open-table facts reads in about 30 seconds.
+The `frames` extra reads EBA-convention tables straight into polars frames of
+strings instead, the same report in about a second. It applies the same
+package, metadata, parameter, filing-indicator, header, special-value and
+duplicate checks; value checks that need a second pass over every string
+(see the end of the filing rules above) are left to the caller. Tables
+described by resolved metadata need `read_xbrl_csv`. `on_metadata` and
+`on_table` callbacks hand over the report header and each table as soon as
+they are read, and `ReportFrames.dropped_rows` maps frame rows back to file
+rows.
+
 ## Writing
 
 ```python
@@ -243,6 +271,16 @@ currency, filing indicators (reported of total), the fact count per template,
 the warnings and the EBA filing rules the report breaks. `convert` chooses the output format from the suffix: `.zip`
 writes xBRL-CSV, `.xbrl` or `.xml` writes XBRL-XML. Errors print `error: ...`
 and exit with status 1.
+
+## Stability
+
+Releases follow [semantic versioning](https://semver.org). The public API is
+everything documented here: the names exported by `dpmxbrl`, `dpmxbrl.filing`
+and `dpmxbrl.frames`, the fields of `Report`, `Fact`, `FilingFinding` and
+`Limits`, the CLI and the `ReportError` contract. Modules whose names start
+with an underscore are internal. Warning texts and filing-finding messages may
+be reworded in minor releases; rule numbers and codes may not. See
+[CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 ## Development
 
