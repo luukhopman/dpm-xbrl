@@ -9,6 +9,15 @@ from zipfile import ZipFile, ZipInfo
 
 import pytest
 
+from dpmxbrl import (
+    Fact,
+    Limits,
+    ReportError,
+    detect_format,
+    local_name,
+    read_report,
+    read_xbrl_csv,
+)
 from tests.support import (
     ENTRY_POINT,
     LEI,
@@ -19,15 +28,6 @@ from tests.support import (
     write_directory,
     write_zip,
     zip_bytes,
-)
-from dpmxbrl import (
-    Fact,
-    Limits,
-    ReportError,
-    detect_format,
-    local_name,
-    read_report,
-    read_xbrl_csv,
 )
 
 

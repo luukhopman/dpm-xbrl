@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from dpmxbrl import Fact, Limits, ReportError, read_report
 from tests.support import (
     CSV_DOCUMENT_TYPE,
     ENTRY_POINT,
@@ -21,7 +22,6 @@ from tests.support import (
     write_directory,
     write_zip,
 )
-from dpmxbrl import Fact, Limits, ReportError, read_report
 
 
 def test_taxonomy_package_resolves_property_groups(tmp_path: Path) -> None:

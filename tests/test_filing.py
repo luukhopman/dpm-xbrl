@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from tests.support import csv_text, open_files, report_json, write_zip
 from dpmxbrl import Report, read_report
 from dpmxbrl.filing import (
     RULE_TITLES,
@@ -16,6 +15,7 @@ from dpmxbrl.filing import (
     check_subject,
     sort_findings,
 )
+from tests.support import csv_text, open_files, report_json, write_zip
 
 
 def _lei(prefix: str) -> str:

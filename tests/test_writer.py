@@ -9,13 +9,6 @@ from zipfile import ZipFile
 
 import pytest
 
-from tests.support import (
-    XML_INSTANCE,
-    metadata_files,
-    open_files,
-    taxonomy_package,
-    write_zip,
-)
 from dpmxbrl import (
     Fact,
     Report,
@@ -24,6 +17,13 @@ from dpmxbrl import (
     read_report,
     write_xbrl_csv,
     write_xbrl_xml,
+)
+from tests.support import (
+    XML_INSTANCE,
+    metadata_files,
+    open_files,
+    taxonomy_package,
+    write_zip,
 )
 
 TYPED = {"eba_dim:qINC": "eba_typ:qCC"}

@@ -4,9 +4,9 @@ import pytest
 
 pytest.importorskip("polars")
 
-from tests.support import csv_text, open_files, report_json, write_zip
 from dpmxbrl import Fact, Report, ReportError, read_xbrl_csv, write_xbrl_csv
 from dpmxbrl.frames import read_xbrl_csv_frames
+from tests.support import csv_text, open_files, report_json, write_zip
 
 
 def report() -> Report:

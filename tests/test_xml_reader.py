@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-from tests.support import LEI, XML_INSTANCE
 from dpmxbrl import (
     Fact,
     Limits,
@@ -14,6 +13,7 @@ from dpmxbrl import (
     read_report,
     read_xbrl_xml,
 )
+from tests.support import LEI, XML_INSTANCE
 
 ROOT_OPEN = (
     '<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance" '

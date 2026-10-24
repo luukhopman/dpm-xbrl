@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from tests.support import XML_INSTANCE, open_files, write_zip
 from dpmxbrl import read_report
 from dpmxbrl.cli import main
+from tests.support import XML_INSTANCE, open_files, write_zip
 
 
 def test_inspect_text(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
