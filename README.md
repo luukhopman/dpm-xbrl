@@ -85,7 +85,7 @@ path as xBRL-CSV and everything else as XBRL-XML. Every failure raises
 columns; every other column is a key column kept in `Fact.keys`. Each row with
 a non-empty `factValue` is one fact. `#nil` gives a nil fact, `#empty` and
 `#none` are skipped, `##` escapes a leading `#`, and other `#` values are kept
-as written; each case adds a warning. `Fact.decimals` stays `None`; consumers
+as written; each case but `##` is recorded in `Report.filing`. `Fact.decimals` stays `None`; consumers
 pick the `decimals_parameters` entry for the fact's data type. Exact duplicate
 rows are reported once; conflicting duplicates (same template, datapoint and
 keys, different value) are all kept. Repeated findings are aggregated into one
