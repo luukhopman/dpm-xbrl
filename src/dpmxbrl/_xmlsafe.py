@@ -39,9 +39,11 @@ def check_prolog(read: Callable[[int], bytes], label: str) -> bytes:
 
 
 def _decode(head: bytes) -> str:
-    if head.startswith((b"\xff\xfe", b"<\x00")):
+    # Expat also detects UTF-16 without a byte order mark from a NUL in the
+    # first two bytes, such as leading whitespace before the first tag.
+    if head.startswith(b"\xff\xfe") or head[1:2] == b"\x00":
         return head.decode("utf-16-le", errors="ignore")
-    if head.startswith((b"\xfe\xff", b"\x00<")):
+    if head.startswith(b"\xfe\xff") or head[:1] == b"\x00":
         return head.decode("utf-16-be", errors="ignore")
     return head.removeprefix(b"\xef\xbb\xbf").decode("latin-1")
 

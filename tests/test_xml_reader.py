@@ -122,6 +122,13 @@ def test_doctype_is_rejected_in_utf16(tmp_path: Path) -> None:
         read_xbrl_xml(path)
 
 
+@pytest.mark.parametrize("encoding", ["utf-16-le", "utf-16-be"])
+def test_doctype_is_rejected_in_utf16_without_bom(encoding: str) -> None:
+    text = '\n<!DOCTYPE x [<!ENTITY a "b">]>' + ROOT_OPEN + "</xbrli:xbrl>"
+    with pytest.raises(ReportError, match="DOCTYPE"):
+        read_xbrl_xml(text.encode(encoding))
+
+
 def test_multiple_periods_and_entities_break_filing_rules() -> None:
     data = _instance(
         _context("a"),
