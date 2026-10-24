@@ -73,6 +73,71 @@ def _scan(head: bytes) -> str:
             return "ok"
 
 
+def check_taxonomy_prolog(data: bytes, label: str) -> None:
+    """Reject a taxonomy XML document whose prolog could declare entities.
+
+    Taxonomy files are XML the EBA publishes: its catalogs name the OASIS
+    catalog DTD in a DOCTYPE. A DOCTYPE with only an external identifier is
+    allowed, since the DTD is never loaded; one with an internal subset,
+    where ENTITY declarations live, and any other declaration are rejected.
+
+    Raises:
+        ReportError: If the prolog holds an internal subset or another
+            declaration, or is too long.
+    """
+    for size in (_CHUNK, _MAX_PROLOG):
+        verdict = _scan_taxonomy(_decode(data[:size]).lstrip("\ufeff"), label)
+        if verdict == "ok" or len(data) <= size:
+            return
+    raise ReportError(f"{label}: XML prolog exceeds {_MAX_PROLOG} bytes")
+
+
+def _scan_taxonomy(text: str, label: str) -> str:
+    """Scan a taxonomy document's prolog.
+
+    Returns:
+        str: ``ok`` at the root element, ``more`` if the text ends first.
+
+    Raises:
+        ReportError: At an internal subset or a declaration other than a
+            DOCTYPE.
+    """
+    index = 0
+    while True:
+        while index < len(text) and text[index] in " \t\r\n":
+            index += 1
+        if index >= len(text):
+            return "more"
+        if text.startswith("<?", index) or text.startswith("<!--", index):
+            close = "?>" if text.startswith("<?", index) else "-->"
+            end = text.find(close, index + 2)
+            if end < 0:
+                return "more"
+            index = end + len(close)
+        elif text.startswith("<!DOCTYPE", index):
+            quote = None
+            for position in range(index + 9, len(text)):
+                character = text[position]
+                if quote:
+                    quote = None if character == quote else quote
+                elif character in "\"'":
+                    quote = character
+                elif character == "[":
+                    raise ReportError(
+                        f"{label}: DOCTYPE internal subsets and ENTITY declarations "
+                        "are not allowed"
+                    )
+                elif character == ">":
+                    index = position + 1
+                    break
+            else:
+                return "more"
+        elif text.startswith("<!", index):
+            raise ReportError(f"{label}: markup declarations are not allowed")
+        else:
+            return "ok"
+
+
 def parse_catalog_rewrites(data: bytes, label: str) -> list[tuple[str, str]]:
     """Read ``rewriteURI``/``rewriteSystem`` entries from an XML catalog.
 
@@ -105,13 +170,7 @@ def parse_catalog_rewrites(data: bytes, label: str) -> list[tuple[str, str]]:
 
     parser.EntityDeclHandler = reject_entity
     parser.StartElementHandler = start
-    try:
-        parser.Parse(data, True)
-    except expat.ExpatError as error:
-        reason = expat.errors.messages[error.code]
-        raise ReportError(
-            f"{label}:{error.lineno}: invalid XML catalog ({reason})"
-        ) from error
+    _run(parser, data, label, "XML catalog")
     return rewrites
 
 
@@ -132,6 +191,13 @@ def _parser(label: str) -> expat.XMLParserType:
 
 
 def _run(parser: expat.XMLParserType, data: bytes, label: str, what: str) -> None:
+    """Check the prolog, then parse, turning every parser error into ReportError.
+
+    Raises:
+        ReportError: If the document is unsafe, not well-formed or in an
+            unknown encoding.
+    """
+    check_taxonomy_prolog(data, label)
     try:
         parser.Parse(data, True)
     except expat.ExpatError as error:
@@ -139,6 +205,8 @@ def _run(parser: expat.XMLParserType, data: bytes, label: str, what: str) -> Non
         raise ReportError(
             f"{label}:{error.lineno}: invalid {what} ({reason})"
         ) from error
+    except (LookupError, ValueError) as error:
+        raise ReportError(f"{label}: invalid {what} ({error})") from error
 
 
 def parse_entry_points(data: bytes, label: str) -> list[str]:

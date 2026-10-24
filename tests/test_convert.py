@@ -673,3 +673,89 @@ def test_malformed_urls_are_unresolvable(
         lambda d: d["documentInfo"]["extends"].append(f"{_BAD_URL}.json"),
     )
     assert write_xbrl_csv(xml, tmp_path / "b.zip", taxonomy_packages=[module]) == ()
+
+
+def _taxonomy_file(tmp_path: Path, path: str, content: str) -> Path:
+    from tests.support import taxonomy_files
+
+    files: dict[str, str | bytes] = dict(taxonomy_files(full=True))
+    files[path] = content
+    return write_zip(tmp_path / "bad.zip", files, root="EBA_CRD_4.0/")
+
+
+_BOMB = (
+    '<?xml version="1.0"?><!DOCTYPE c [<!ENTITY a "aaaa">'
+    '<!ENTITY b "&a;&a;&a;&a;">]><c>&b;</c>'
+)
+
+
+@pytest.mark.parametrize(
+    ("path", "content", "message"),
+    [
+        (
+            "META-INF/catalog.xml",
+            '<?xml version="1.0" encoding="x-bogus"?><catalog/>',
+            "invalid XML catalog (unknown encoding: x-bogus)",
+        ),
+        (
+            "META-INF/taxonomyPackage.xml",
+            '<?xml version="1.0" encoding="x-bogus"?><taxonomyPackage/>',
+            "invalid taxonomy package metadata",
+        ),
+        ("META-INF/catalog.xml", _BOMB, "DOCTYPE internal subsets"),
+        ("META-INF/taxonomyPackage.xml", _BOMB, "DOCTYPE internal subsets"),
+        (
+            "META-INF/catalog.xml",
+            '<?xml version="1.0"?><!ENTITY x "y"><catalog/>',
+            "markup declarations are not allowed",
+        ),
+    ],
+)
+def test_unsafe_or_unreadable_taxonomy_xml(
+    tmp_path: Path, csv_report: Report, path: str, content: str, message: str
+) -> None:
+    bad = _taxonomy_file(tmp_path, path, content)
+    with pytest.raises(ReportError, match=re.escape(message)):
+        write_xbrl_xml(csv_report, io.BytesIO(), taxonomy_packages=[bad])
+
+
+def test_schema_with_unknown_encoding_raises(
+    tmp_path: Path, csv_report: Report
+) -> None:
+    from tests.support import DICT
+
+    bad = _taxonomy_file(
+        tmp_path,
+        f"{DICT}met/met.xsd",
+        '<?xml version="1.0" encoding="x-bogus"?><xs:schema '
+        'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
+        'targetNamespace="http://www.eba.europa.eu/xbrl/crr/dict/met"/>',
+    )
+    with pytest.raises(ReportError, match="unknown encoding"):
+        read_report(_as_xml_bytes(csv_report, tmp_path), taxonomy_packages=[bad])
+
+
+def _as_xml_bytes(report: Report, tmp_path: Path) -> bytes:
+    good = taxonomy_package(tmp_path / "good.zip", full=True)
+    buffer = io.BytesIO()
+    write_xbrl_xml(report, buffer, taxonomy_packages=[good])
+    return buffer.getvalue()
+
+
+def test_catalog_doctype_without_internal_subset_is_read(
+    tmp_path: Path, csv_report: Report
+) -> None:
+    from tests.support import catalog_xml
+
+    catalog = catalog_xml(
+        {"http://www.eba.europa.eu/eu/fr/xbrl/": "../www.eba.europa.eu/eu/fr/xbrl/"}
+    ).replace(
+        "<catalog ",
+        '<!DOCTYPE catalog PUBLIC "-//OASIS//DTD Entity Resolution XML Catalog '
+        'V1.0//EN" "http://www.oasis-open.org/committees/entity/release/1.0/'
+        'catalog.dtd">\n<catalog ',
+    )
+    package = _taxonomy_file(tmp_path, "META-INF/catalog.xml", catalog)
+    buffer = io.BytesIO()
+    write_xbrl_xml(csv_report, buffer, taxonomy_packages=[package])
+    assert b"<eba_typ:CC>" in buffer.getvalue()

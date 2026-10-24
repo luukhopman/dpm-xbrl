@@ -41,6 +41,13 @@ order mark, and any DOCTYPE, and with it any ENTITY declaration, is
 rejected. External entities are therefore never resolved, and entity
 expansion attacks cannot start. Parsing streams with `iterparse`.
 
+XML from taxonomy packages (catalogs, `taxonomyPackage.xml` and schemas)
+gets the same prolog scan, with one difference: a DOCTYPE that only names
+an external DTD, as the EBA's catalogs name the OASIS catalog DTD, is
+allowed, because the DTD is never loaded. A DOCTYPE with an internal
+subset, where ENTITY declarations live, any other declaration and an
+unknown encoding raise `ReportError`.
+
 ## JSON
 
 Duplicate keys are rejected rather than silently resolved, and documents
