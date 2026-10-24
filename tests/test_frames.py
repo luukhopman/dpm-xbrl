@@ -6,7 +6,14 @@ pytest.importorskip("polars")
 
 from dpmxbrl import Fact, Report, ReportError, read_xbrl_csv, write_xbrl_csv
 from dpmxbrl.frames import read_xbrl_csv_frames
-from tests.support import csv_text, open_files, report_json, write_zip
+from tests.support import (
+    closed_files,
+    csv_text,
+    open_files,
+    report_json,
+    write_zip,
+    zip_bytes,
+)
 
 
 def report() -> Report:
@@ -252,3 +259,18 @@ def test_files_read_together_report_in_package_order(tmp_path) -> None:
         if "conflicting duplicate facts" in warning
     ]
     assert tables == [f"reports/c_{n:02d}.00.csv" for n in range(2, 12)]
+
+
+@pytest.mark.parametrize(
+    ("header", "message"),
+    [
+        ("datapoint,factValue,k,k", "duplicate table columns k"),
+        ("datapoint,factValue,,k", "empty column name"),
+    ],
+)
+def test_headers_are_checked_like_read_xbrl_csv(header: str, message: str) -> None:
+    files = closed_files(**{"reports/c_01.00.csv": csv_text(header, "dp1,1,a,b")})
+    with pytest.raises(ReportError, match=message):
+        read_xbrl_csv_frames(zip_bytes(files))
+    with pytest.raises(ReportError, match=message):
+        read_xbrl_csv(zip_bytes(files))

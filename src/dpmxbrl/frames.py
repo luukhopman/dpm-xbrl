@@ -17,6 +17,12 @@ Filing-rule findings on values are limited to special values (``#nil``,
 second scan of millions of strings, so they are left to callers that already
 split values by data type and key column.
 
+Table files are parsed by polars, which is more lenient than the ``csv``
+module: a row with fewer cells than the header is padded with empty cells
+instead of rejected, and line numbers in findings count data rows rather
+than physical lines, so they differ when a file has blank lines or values
+spanning lines.
+
 Rows with no fact (an empty value, ``#empty`` or ``#none``) and exact
 duplicate rows are removed, so a frame's row index is not the row's place in
 its CSV file. :attr:`ReportFrames.dropped_rows` lists the removed rows by
@@ -26,6 +32,7 @@ the file location.
 
 from __future__ import annotations
 
+import csv
 import io
 import os
 from collections import Counter
@@ -291,7 +298,17 @@ def _parse(data: bytes, display: str) -> _Parsed:
         if not data.strip():
             raise ReportError(f"{display}:1: the first row must be a header") from error
         raise ReportError(f"{display}: {error}") from error
+    # polars renames a repeated column and names an empty one; the header
+    # row as written is checked like read_xbrl_csv checks it.
+    written = next(csv.reader([data.split(b"\n", 1)[0].decode("utf-8-sig")]), [])
     del data
+    if any(not column.strip("\r") for column in written):
+        raise ReportError(f"{display}:1: table header has an empty column name")
+    duplicates = sorted({column for column in written if written.count(column) > 1})
+    if duplicates:
+        raise ReportError(
+            f"{display}:1: duplicate table columns {', '.join(duplicates)}"
+        )
     header = frame.columns
     if "datapoint" not in header or "factValue" not in header:
         raise ReportError(
