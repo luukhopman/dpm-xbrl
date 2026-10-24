@@ -206,6 +206,10 @@ point valid for the reference date (1.5), and `baseCurrency` when monetary
 facts use it. Not checked: units against the XBRL unit registry (2.23),
 decimal notation for rates (3.2), canonical prefixes (3.5),
 generating-software information (2.26) and comments (2.5).
+`dpmxbrl.filing` also exposes the checks the readers use (`check_entry_point`,
+`check_file_name`, `check_subject`), `sort_findings`, and the rule tuples
+(`NIL_VALUE`, `EMPTY_VALUE`, `SPECIAL_VALUE`, `DECIMALS_SUFFIX`, `KEY_SPACES`,
+`SPECIAL_KEY_VALUE`, `SPACES`) that `FilingLog.add(*rule, location)` takes.
 `read_xbrl_csv_frames` checks special fact values only; the decimals suffix,
 spaces around key values and special key values are left to callers that
 split values by data type, which can record them with the same messages
@@ -231,7 +235,8 @@ strings instead, the same report in about a second. It applies the same
 package, metadata, parameter, filing-indicator, header, special-value and
 duplicate checks; value checks that need a second pass over every string
 (see the end of the filing rules above) are left to the caller. Tables
-described by resolved metadata need `read_xbrl_csv`. `on_metadata` and
+described by resolved metadata need `read_xbrl_csv`; for them the reader raises
+`MetadataTablesError`, a `ReportError`. `on_metadata` and
 `on_table` callbacks hand over the report header and each table as soon as
 they are read, and `ReportFrames.dropped_rows` maps frame rows back to file
 rows.
@@ -261,7 +266,10 @@ dimensions in the scenario), units (`u1`, ...) and facts. A fact with a unit
 is numeric and gets `decimals` (`INF` when unset) unless it is nil. Facts
 without a concept, undeclared prefixes and a missing entity or reference date
 raise `ReportError`. Because the reader does not keep typed-domain element
-names, typed dimensions need `typed_domains={"eba_dim:qINC": "eba_typ:qCC"}`.
+names, typed dimensions need `typed_domains={"eba_dim:qINC": "eba_typ:qCC"}`,
+with a prefix the report declares or in Clark notation
+(`{http://www.eba.europa.eu/xbrl/crr/dict/typ}qCC`), whose namespace is then
+declared; only the domains of dimensions that facts use are written.
 
 Reading a written report reproduces its facts in both formats; the tests
 cover these round trips.
@@ -271,7 +279,7 @@ cover these round trips.
 ```
 dpm-xbrl inspect PATH [--json] [--fail-on error|warning] [--columnar]
                       [--taxonomy-package ZIP ...] [--max-facts N ...]
-dpm-xbrl convert IN OUT [--taxonomy-package ZIP ...]
+dpm-xbrl convert IN OUT [--taxonomy-package ZIP ...] [--max-facts N ...]
                         [--typed-domain DIMENSION=ELEMENT ...] [--root NAME]
 dpm-xbrl --version
 ```
@@ -281,14 +289,19 @@ currency, filing indicators (reported of total), the fact count per template,
 the warnings and the EBA filing rules the report breaks; with `--json` it
 prints them as an object that also carries `schema_version` (1). `convert`
 chooses the output format from the suffix: `.zip` writes xBRL-CSV, `.xbrl` or
-`.xml` writes XBRL-XML. Errors print `error: ...`
-and exit with status 1. With `--fail-on`, `inspect` exits with status 2 when
-the report breaks a filing rule of that severity (`warning` includes errors),
-so a pipeline can stop on reports the EBA would reject. `--columnar` counts
-xBRL-CSV facts with the `frames` extra: 21.9 million facts in 2 seconds and
-2.3 GB instead of minutes, checking special fact values only. `--max-facts`,
-`--max-file-size`, `--max-total-size` and `--max-zip-entries` raise the
-`Limits` for large trusted reports.
+`.xml` writes XBRL-XML.
+
+Exit statuses: 0 on success; 1 when the report cannot be read or written
+(`error: ...`, with a hint naming the option when a limit is hit); 2 for a
+usage error; 3 when `inspect --fail-on` finds a filing rule of that severity
+broken (`warning` includes errors), so a pipeline can stop on reports the EBA
+would reject. `--max-facts`, `--max-file-size`, `--max-total-size` and
+`--max-zip-entries` raise the `Limits` for large trusted reports.
+`--columnar` counts xBRL-CSV facts with the `frames` extra and says so on
+stderr: the 21.9 million-fact package (one 587 MB table, so with
+`--max-file-size 1000000000 --max-total-size 4000000000 --max-facts
+30000000`) takes 2 seconds and 2.3 GB instead of minutes, checking special
+fact values only.
 
 ```text
 $ dpm-xbrl inspect EBA-COREP_OF.xbrl

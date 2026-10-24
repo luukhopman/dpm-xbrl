@@ -104,8 +104,8 @@ def test_inspect_fails_on_broken_filing_rules(
         "warning",
     }
     assert main(["inspect", str(path)]) == 0
-    assert main(["inspect", str(path), "--fail-on", "warning"]) == 2
-    assert main(["inspect", str(path), "--fail-on", "error"]) == 2
+    assert main(["inspect", str(path), "--fail-on", "warning"]) == 3
+    assert main(["inspect", str(path), "--fail-on", "error"]) == 3
     output = capsys.readouterr().out
     assert "(none)" not in output
 
@@ -124,9 +124,17 @@ def test_inspect_columnar_counts_like_read_report(
     assert main(["inspect", str(path), "--json"]) == 0
     full = json.loads(capsys.readouterr().out)
     assert main(["inspect", str(path), "--json", "--columnar"]) == 0
-    columnar = json.loads(capsys.readouterr().out)
+    output = capsys.readouterr()
+    columnar = json.loads(output.out)
     for field in ("fact_count", "facts_per_template", "reference_date", "entity_id"):
         assert columnar[field] == full[field]
+    assert "note: --columnar checks special fact values only" in output.err
+    header_only = write_zip(
+        tmp_path / "h.zip",
+        open_files(**{"reports/c_27.00.csv": "datapoint,factValue,c0010\r\n"}),
+    )
+    assert main(["inspect", str(header_only), "--json", "--columnar"]) == 0
+    assert "c_27.00" not in json.loads(capsys.readouterr().out)["facts_per_template"]
 
 
 def test_cli_limits_are_applied(
@@ -134,6 +142,8 @@ def test_cli_limits_are_applied(
 ) -> None:
     path = write_zip(tmp_path / "r.zip", open_files())
     assert main(["inspect", str(path), "--max-facts", "2"]) == 1
-    assert "exceeds the limit of 2 facts" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "exceeds the limit of 2 facts" in error
+    assert "hint: --max-facts raises the limit" in error
     with pytest.raises(SystemExit):
         main(["inspect", str(path), "--max-facts", "0"])

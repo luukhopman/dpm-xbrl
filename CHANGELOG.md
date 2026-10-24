@@ -7,9 +7,10 @@ All notable changes to this project are documented here. The project follows
 
 ### Added
 
-- `dpm-xbrl inspect --fail-on error|warning` exits with status 2 when the
-  report breaks a filing rule of that severity; `--version`, and examples in
-  `--help`.
+- `dpm-xbrl inspect --fail-on error|warning` exits with status 3 when the
+  report breaks a filing rule of that severity (2 stays the usage-error
+  status); `--version`, and examples in `--help`. A limit error names the
+  option that raises it.
 - `dpmxbrl.__version__`; `inspect --json` output carries `schema_version`.
 - `inspect --columnar` counts large xBRL-CSV packages with polars, and both
   commands take `--max-facts`, `--max-file-size`, `--max-total-size` and
@@ -24,9 +25,12 @@ All notable changes to this project are documented here. The project follows
 
 ### Changed
 
-- The `dimensions`, `typed_dimensions` and `keys` mappings of facts that are
-  read are read-only `dict`s that facts may share; copy one with `dict()` to
-  change it. They pickle, copy and serialize as plain dicts.
+- **Breaking:** the `dimensions`, `typed_dimensions` and `keys` mappings of
+  facts that are read are read-only `dict`s that facts may share; assigning
+  to one raises `TypeError`, so copy it with `dict()` to change it. They
+  pickle, copy and serialize as plain dicts.
+- `inspect` no longer prints a `(none)` per-template row for XML reports,
+  whose facts have no template.
 - `detect_format` is annotated to return `ReportFormat`.
 
 ### Fixed

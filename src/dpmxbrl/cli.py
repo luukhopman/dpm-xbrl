@@ -8,15 +8,27 @@ import sys
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
-from importlib.metadata import PackageNotFoundError, version
 from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
+from ._version import __version__
 from .filing import RULE_TITLES
 from .model import Limits, Report, ReportError
 from .reader import detect_format, read_report
 from .writer import write_xbrl_csv, write_xbrl_xml
+
+FAILED_FILING_RULES = 3
+"""Exit status of ``inspect --fail-on`` when the report breaks a rule."""
+
+_LIMIT_OPTIONS = (
+    ("facts", "--max-facts"),
+    ("ZIP entries", "--max-zip-entries"),
+    ("files in the package", "--max-zip-entries"),
+    ("uncompressed size", "--max-total-size"),
+    ("total size", "--max-total-size"),
+    ("file size", "--max-file-size"),
+)
 
 JSON_SCHEMA_VERSION = 1
 """Version of the ``inspect --json`` layout; it changes only with a new major."""
@@ -128,13 +140,6 @@ _EPILOG = """examples:
   dpm-xbrl convert report.zip instance.xbrl --taxonomy-package taxonomy.zip"""
 
 
-def _version() -> str:
-    try:
-        return version("dpm-xbrl")
-    except PackageNotFoundError:  # pragma: no cover - running from a checkout
-        return "unknown"
-
-
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="dpm-xbrl",
@@ -142,7 +147,9 @@ def _parser() -> argparse.ArgumentParser:
         epilog=_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {_version()}")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     inspect = commands.add_parser(
         "inspect", help="summarize a report and the EBA filing rules it breaks"
@@ -248,8 +255,24 @@ def _inspected(
         except MetadataTablesError:
             pass
         else:
-            counts = {name: frame.height for name, frame in frames.tables.items()}
+            print(
+                "note: --columnar checks special fact values only; key values and "
+                "decimals suffixes are not checked",
+                file=sys.stderr,
+            )
+            counts = {
+                name: frame.height
+                for name, frame in frames.tables.items()
+                if frame.height
+            }
             return frames.report, dict(sorted(counts.items()))
+        print(
+            "note: --columnar does not apply to tables described by metadata; "
+            "reading every fact",
+            file=sys.stderr,
+        )
+    elif arguments.columnar:
+        print("note: --columnar applies to xBRL-CSV only", file=sys.stderr)
     report = read_report(
         arguments.path, taxonomy_packages=arguments.taxonomy_package, limits=limits
     )
@@ -260,8 +283,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the ``dpm-xbrl`` command.
 
     Returns:
-        int: Process exit status: 1 when the report cannot be processed, 2
-        when ``inspect --fail-on`` finds a filing rule broken.
+        int: Process exit status: 1 when the report cannot be processed, 3
+        when ``inspect --fail-on`` finds a filing rule broken (argparse uses 2
+        for usage errors).
     """
     arguments = _parser().parse_args(argv)
     try:
@@ -278,7 +302,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             broken = arguments.fail_on and any(
                 item.severity in failing for item in report.filing
             )
-            return 2 if broken else 0
+            return FAILED_FILING_RULES if broken else 0
         suffix = arguments.output.suffix.casefold()
         if suffix not in {".zip", ".xbrl", ".xml"}:
             print(
@@ -300,5 +324,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             write_xbrl_xml(report, arguments.output, typed_domains=typed_domains)
     except (ReportError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
+        message = str(error)
+        if "limit" in message or "maximum" in message:
+            option = next(
+                (option for word, option in _LIMIT_OPTIONS if word in message), None
+            )
+            if option:
+                print(f"hint: {option} raises the limit", file=sys.stderr)
         return 1
     return 0
