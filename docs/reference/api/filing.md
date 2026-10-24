@@ -17,6 +17,7 @@ See [check EBA filing rules](../../guides/check-filing-rules.md),
       show_root_heading: false
       members:
         - RULE_TITLES
+        - CHECKED_RULES
         - Rule
         - FilingLog
         - sort_findings
@@ -30,6 +31,7 @@ See [check EBA filing rules](../../guides/check-filing-rules.md),
         - DECIMALS_SUFFIX
         - SPACES
         - KEY_SPACES
+        - MISSING_KEY_VALUE
 
 `FilingFinding` and `Severity` are re-exported here from
 [`dpmxbrl`](dpmxbrl.md#dpmxbrl.FilingFinding).

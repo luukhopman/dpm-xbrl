@@ -25,30 +25,38 @@ rejects the report) and `warning` where it says SHOULD. File-naming
 findings are warnings, because each supervisor confirms its own naming
 structure with its reporters.
 
-## What is left to you
+## With the taxonomy
 
 Some rules need the taxonomy or a data point's data type, which the file
-does not carry. The readers leave them to callers, which can record them
-with the same classes; see
-[add your own filing findings](../guides/add-filing-findings.md):
+does not carry. Given [taxonomy packages](../guides/taxonomy-packages.md),
+the readers check these too, and only then: a published entry point valid
+for the reference date (1.5), a filing indicator for every template of the
+module and only valid codes (1.6, 1.6.3), minimum decimals per data type
+(2.18), percentages as decimal fractions (3.2 (b)) and, for XML, canonical
+namespace prefixes (3.5). [What each mode checks](../reference/filing-rules.md#what-each-mode-checks)
+has the details.
 
-- a filing indicator for every template of the module, and only valid
-  codes (1.6, 1.6.3);
+## What is left to you
+
+The readers leave some rules to callers, which can record them with the
+same classes; see [add your own filing findings](../guides/add-filing-findings.md):
+
 - facts outside the reported templates (1.7.1);
-- minimum decimals per data type (2.18);
 - leading or trailing spaces in string fact values (3.11);
-- an entry point valid for the reference date (1.5);
-- `baseCurrency` when monetary facts use it.
+- `baseCurrency` when monetary facts use it;
+- without taxonomy packages, the rules of the previous section.
+
+[`CHECKED_RULES`][dpmxbrl.filing.CHECKED_RULES] lists what each mode
+checks, so that your own findings need not repeat them.
 
 [Columnar reading](../guides/large-reports.md) checks special fact values
-only, and leaves the decimals suffix, key spaces and special key values to
-the caller as well.
+only, and leaves the decimals suffix, key spaces, special key values and
+empty key values to the caller as well.
 
 ## What is not checked
 
-Units against the XBRL unit registry (2.23), decimal notation for rates
-(3.2), canonical prefixes (3.5), generating-software information (2.26) and
-comments (2.5).
+Units against the XBRL unit registry (2.23), generating-software
+information (2.26) and comments (2.5).
 
 ## Warnings are not filing findings
 

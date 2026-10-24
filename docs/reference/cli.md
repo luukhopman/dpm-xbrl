@@ -29,6 +29,7 @@ examples:
   dpm-xbrl inspect instance.xbrl --json
   dpm-xbrl inspect report.zip --fail-on error
   dpm-xbrl convert report.zip instance.xbrl --taxonomy-package taxonomy.zip
+  dpm-xbrl convert instance.xbrl report.zip --taxonomy-package taxonomy.zip
 ```
 
 ## Exit statuses
@@ -63,8 +64,9 @@ options:
                         exit with status 3 when the report breaks a filing
                         rule of this severity or worse
   --taxonomy-package ZIP
-                        local taxonomy package used to resolve xBRL-CSV
-                        metadata
+                        local taxonomy package: resolves xBRL-CSV metadata,
+                        adds the checks that need the taxonomy, and places XML
+                        facts in tables or gives typed domains when converting
 
 limits:
   resource limits for untrusted input (defaults in the documentation)
@@ -104,7 +106,7 @@ A finding that occurs more than once ends in `(N times)`.
 | `--fail-on error` | Exit with status 3 if any `error` finding is present. |
 | `--fail-on warning` | Exit with status 3 if any finding is present. |
 | `--columnar` | Count xBRL-CSV facts with the `frames` extra (polars) instead of building every fact. Prints a note on standard error; checks special fact values only. Falls back to a full read, with a note, for tables described by metadata; ignored with a note for XML. Fails with status 1 without the extra. |
-| `--taxonomy-package ZIP` | Resolve xBRL-CSV metadata from a local taxonomy package. Repeat for several. |
+| `--taxonomy-package ZIP` | Resolve xBRL-CSV metadata from a local taxonomy package, and check the [filing rules that need the taxonomy](filing-rules.md#what-each-mode-checks). Repeat for several; a ZIP of packages, as the EBA publishes a release, also works. |
 | `--max-file-size N` | Raise or lower [`Limits.max_file_size`][dpmxbrl.Limits] (default 536870912). |
 | `--max-total-size N` | `Limits.max_total_size` (default 2147483648). |
 | `--max-zip-entries N` | `Limits.max_zip_entries` (default 10000). |
@@ -118,9 +120,9 @@ in `--max-facts 30_000_000`.
 ```console
 $ dpm-xbrl convert --help
 usage: dpm-xbrl convert [-h] [--typed-domain DIMENSION=ELEMENT] [--root ROOT]
-                        [--max-file-size N] [--max-total-size N]
-                        [--max-zip-entries N] [--max-facts N]
-                        [--taxonomy-package ZIP]
+                        [--skip-unmapped] [--max-file-size N]
+                        [--max-total-size N] [--max-zip-entries N]
+                        [--max-facts N] [--taxonomy-package ZIP]
                         input output
 
 positional arguments:
@@ -133,9 +135,13 @@ options:
                         typed domain element for a typed dimension (XML
                         output)
   --root ROOT           top-level folder name (xBRL-CSV output)
+  --skip-unmapped       leave out, and list, facts the taxonomy packages
+                        cannot place in a table instead of failing (xBRL-CSV
+                        output)
   --taxonomy-package ZIP
-                        local taxonomy package used to resolve xBRL-CSV
-                        metadata
+                        local taxonomy package: resolves xBRL-CSV metadata,
+                        adds the checks that need the taxonomy, and places XML
+                        facts in tables or gives typed domains when converting
 
 limits:
   resource limits for untrusted input (defaults in the documentation)
@@ -162,9 +168,11 @@ $ echo $?
 
 | Option | Effect |
 | --- | --- |
-| `--typed-domain DIMENSION=ELEMENT` | Typed domain element of a typed dimension, for XML output, such as `eba_dim:qINC=eba_typ:qCC` or with the element in Clark notation, `eba_dim:qINC={http://www.eba.europa.eu/xbrl/crr/dict/typ}qCC`. Repeat for each typed dimension the facts use. |
-| `--root NAME` | Top-level folder of the xBRL-CSV package; defaults to `<entity id>_<reference date>`. |
-| `--taxonomy-package ZIP`, `--max-*` | As for `inspect`. |
+| `--taxonomy-package ZIP` | As for `inspect`; also places XML facts in the module's tables for xBRL-CSV output, and gives typed domains and the XSD `schemaRef` for XML output. |
+| `--typed-domain DIMENSION=ELEMENT` | Typed domain element of a typed dimension, for XML output without taxonomy packages, such as `eba_dim:qINC=eba_typ:qCC` or with the element in Clark notation, `eba_dim:qINC={http://www.eba.europa.eu/xbrl/crr/dict/typ}qCC`. Repeat for each typed dimension the facts use; it overrides the taxonomy's. |
+| `--root NAME` | Top-level folder of the xBRL-CSV package; defaults to the output's file name without `.zip`, as EBA file naming asks. |
+| `--skip-unmapped` | With taxonomy packages and xBRL-CSV output, leave out facts that cannot be placed exactly and list them on standard error, instead of failing with status 1. |
+| `--max-*` | As for `inspect`. |
 
 See [convert between formats](../guides/convert-formats.md) for which
 conversions are possible.

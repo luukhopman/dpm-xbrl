@@ -64,7 +64,7 @@ Entry point:       http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.0/mod/cor
 Entity:            SYNTHETICDPMXL000002.CON (https://eurofiling.info/eu/rs)
 Reference date:    2024-12-31
 Base currency:     iso4217:EUR
-Filing indicators: 2 reported of 3
+Filing indicators: 2 reported of 2
 Facts:             6
   c_01.00  3
   c_27.00  3
@@ -75,6 +75,44 @@ EBA filing rules broken: 0 must be fixed, 1 recommended
 
 Without the package, the same command prints the warning that the entry
 point could not be resolved offline.
+
+### The release ZIP as the EBA publishes it
+
+The EBA publishes a taxonomy release as one ZIP holding the packages, such
+as `taxo_package_4.2_hotfix.zip`. Pass that file as it is: when a ZIP has
+no `META-INF/catalog.xml`, the ZIPs at its top level are read as the
+packages, within `Limits.max_file_size` each and `Limits.max_total_size`
+together. Other files in it, such as release notes, are ignored.
+
+```python
+from zipfile import ZipFile
+
+with ZipFile("release.zip", "w") as release:
+    release.write("taxonomy.zip", "EBA_XBRL_4.0_Reporting_Frameworks.zip")
+    release.writestr("Release Notes.pdf", b"%PDF-1.7")
+report = read_report("described.zip", taxonomy_packages=["release.zip"])
+print(report.facts[0].concept)
+```
+
+```text
+eba_met:mi53
+```
+
+## What else the packages give
+
+Besides the metadata, dpm-xbrl takes from the packages:
+
+- the published entry points (`taxonomyPackage.xml`) and each module's
+  reference dates and templates, for the filing rules that need the
+  taxonomy: 1.5, 1.6, 1.6.3, 2.18, 3.2 (b) and 3.5. Both readers check
+  them only when given taxonomy packages; see
+  [which rules each mode checks](../reference/filing-rules.md#what-each-mode-checks);
+- the tables of the module, to [convert XBRL-XML to xBRL-CSV](convert-formats.md#xbrl-xml-to-xbrl-csv);
+- typed domain elements and the module's XSD entry point, to
+  [convert xBRL-CSV to XBRL-XML](convert-formats.md#xbrl-csv-to-xbrl-xml).
+
+Reading an XML instance with `taxonomy_packages` adds the checks only: XML
+needs no metadata to read.
 
 ## With a resolver function
 

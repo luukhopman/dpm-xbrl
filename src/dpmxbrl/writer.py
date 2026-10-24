@@ -239,7 +239,8 @@ def write_xbrl_csv(
     Examples:
         >>> from dpmxbrl import read_report, write_xbrl_csv
         >>> report = read_report("report.zip")
-        >>> write_xbrl_csv(report, "copy.zip", root="copy")
+        >>> write_xbrl_csv(report, "copy.zip")  # root folder "copy"
+        ()
         >>> read_report("copy.zip").facts == report.facts
         True
     """
@@ -636,12 +637,10 @@ def write_xbrl_xml(
     Examples:
         >>> from dpmxbrl import read_report, write_xbrl_xml
         >>> report = read_report("described.zip", taxonomy_packages=["taxonomy.zip"])
-        >>> typ = "{http://www.eba.europa.eu/xbrl/crr/dict/typ}qCC"
-        >>> write_xbrl_xml(
-        ...     report, "described.xbrl", typed_domains={"eba_dim:qINC": typ}
-        ... )
-        >>> len(read_report("described.xbrl").facts)
-        6
+        >>> write_xbrl_xml(report, "described.xbrl", taxonomy_packages=["taxonomy.zip"])
+        >>> instance = read_report("described.xbrl")
+        >>> len(instance.facts), instance.entry_point.rsplit("/", 1)[1]
+        (6, 'corep_of.xsd')
     """
     with ExitStack() as stack:
         taxonomy = None

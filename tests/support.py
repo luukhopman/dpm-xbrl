@@ -307,6 +307,15 @@ def taxonomy_package(
     first reference date and filing indicator codes, and holds dimension,
     typed domain and metric schemas.
     """
+    return write_zip(
+        path, taxonomy_files(full=full, valid_from=valid_from), root="EBA_CRD_4.0/"
+    )
+
+
+def taxonomy_files(
+    *, full: bool = False, valid_from: str = "2024-01-01"
+) -> dict[str, str]:
+    """Return the files of the fake EBA taxonomy package (see ``taxonomy_package``)."""
     module = json.loads(module_json())
     metadata = "<taxonomyPackage/>"
     if full:
@@ -321,7 +330,7 @@ def taxonomy_package(
             f'<entryPoints><entryPoint><entryPointDocument href="{ENTRY_POINT_XSD}"/>'
             "</entryPoint></entryPoints></taxonomyPackage>"
         )
-    files = {
+    return {
         "META-INF/catalog.xml": catalog_xml(
             {"http://www.eba.europa.eu/eu/fr/xbrl/": "../www.eba.europa.eu/eu/fr/xbrl/"}
         ),
@@ -337,7 +346,6 @@ def taxonomy_package(
             open_template_json()
         ),
     }
-    return write_zip(path, files, root="EBA_CRD_4.0/")
 
 
 # XBRL-XML ------------------------------------------------------------------------

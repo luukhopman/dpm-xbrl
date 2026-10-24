@@ -144,9 +144,12 @@ the EBA convention:
 ```
 
 Nil values are written as `#nil`, empty strings as `#empty` and a leading
-`#` as `##`. The root defaults to
+`#` as `##`. The root defaults to the target's file name without `.zip`,
+or, for a stream, to
 [`default_package_root(report)`][dpmxbrl.default_package_root],
-`<entity id>_<reference date>`. Output is deterministic: sorted templates,
+`<entity id>_<reference date>`. With `taxonomy_packages`, the module's
+tables, columns and prefixes are used instead; see
+[convert between formats](../guides/convert-formats.md#xbrl-xml-to-xbrl-csv). Output is deterministic: sorted templates,
 source fact order, fixed ZIP timestamps. Facts without a template or
 datapoint, unsafe template or root names, and the template names
 `parameters` and `FilingIndicators` raise `ReportError` before anything is
@@ -158,13 +161,18 @@ written.
 filing indicators, contexts deduplicated by dimensions (`c1`, `c2`, ...,
 each with the entity and an instant at `reference_date`, dimensions in the
 scenario), units (`u1`, ...) and facts. A fact with a unit is numeric and
-gets `decimals` (`INF` when unset) unless it is nil. The report's
-namespaces are declared on the root element.
+gets `decimals` (`INF` when unset) unless it is nil; a fact with decimals
+but no unit gets `xbrli:pure`. A fact repeated with the same concept,
+dimensions, unit, value and decimals is written once. The `schemaRef` is
+the module's XSD entry point, mapped from a JSON one through the taxonomy
+packages or the EBA's naming. Only the namespaces the instance uses are
+declared, on the root element.
 
 Facts without a concept, undeclared or invalid prefixes, invalid local
 names, characters XML cannot represent, a missing entity or reference date,
 and a typed dimension without a typed domain raise `ReportError`. Because
 the reader does not keep typed-domain element names, typed dimensions need
+their domain element: from `taxonomy_packages`, or as
 `typed_domains={"eba_dim:qINC": "eba_typ:qCC"}`, with a prefix the report
 declares or in Clark notation
 (`{http://www.eba.europa.eu/xbrl/crr/dict/typ}qCC`), whose namespace is then

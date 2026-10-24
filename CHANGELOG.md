@@ -53,6 +53,8 @@ All notable changes to this project are documented here. The project follows
 - `dpmxbrl.filing.CHECKED_RULES` lists the findings each reader can record,
   without and with taxonomy packages.
 - `SkippedFacts`, the type `write_xbrl_csv` returns.
+- `filing_indicator_code` maps a table template to its filing indicator.
+- `detect_format(..., name=...)` names the input in its errors.
 - The public API is documented: every name in the `__all__` of `dpmxbrl`,
   `dpmxbrl.filing` and `dpmxbrl.frames`, and how table codes map to filing
   indicators.
@@ -69,6 +71,8 @@ All notable changes to this project are documented here. The project follows
 - `inspect` no longer prints a `(none)` per-template row for XML reports,
   whose facts have no template.
 - `detect_format` is annotated to return `ReportFormat`.
+- `Report.facts_for_template` also matches a table by its filing indicator,
+  so `C_07.00` selects the facts of `c_07.00.a` and `c_07.00.b`.
 - `write_xbrl_xml` declares only the prefixes the instance uses, writes a
   fact repeated in several xBRL-CSV tables once, and gives numeric facts
   without a unit `xbrli:pure`.
@@ -76,6 +80,10 @@ All notable changes to this project are documented here. The project follows
 ### Fixed
 
 - Unused contexts and units (2.7, 2.22) are listed in document order.
+- `write_xbrl_xml` references the module's `.xsd` entry point when the
+  report extends its `.json` one: the one the taxonomy packages list, or by
+  the EBA's naming with an `EntryPointWarning`.
+- The error for a damaged ZIP uses the `name=` given to `read_report`.
 - `write_xbrl_csv` declares the Report Packages 1.0 type
   `https://xbrl.org/report-package/2023` that EBA packages use; the
   `/2023/xbrl-csv` it wrote before is not a defined type, and other tools

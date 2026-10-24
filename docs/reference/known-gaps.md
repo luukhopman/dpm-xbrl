@@ -11,15 +11,18 @@ description: What dpm-xbrl does not do - taxonomy validation, parts of xBRL-CSV 
 - xBRL-CSV: no `rowIdColumn`, `links`, footnotes, `@start`/`@end` period
   semantics, per-fact `period`/`entity`/`language` values (they are
   ignored), or multiple reports per package. Taxonomy packages must be
-  ZIPs.
+  ZIPs, or one ZIP of them as the EBA publishes a release (one level deep,
+  read into memory).
 - EBA-convention CSV facts carry no concept, dimensions, unit or decimals,
-  so they cannot be written as XML; XML facts carry no datapoint or
-  template, so they cannot be written as CSV. Converting between formats
-  needs resolved xBRL-CSV metadata, and XBRL-XML to xBRL-CSV is not
-  possible.
-- `write_xbrl_xml` writes the report's entry point as it is, so an
-  xBRL-CSV report's `.json` entry point needs replacing with the `.xsd` one,
-  and it declares every namespace of the report, used or not (rule 3.4).
+  and XML facts no datapoint or template, so converting between formats
+  needs the module's taxonomy packages. XML to xBRL-CSV places facts in
+  tables of the EBA layout only (one property-group column, one fact
+  column), and a `decimals*` parameter takes the lowest decimals of its
+  facts. Key columns follow the EBA's header-code order, which matches
+  the EBA's own packages for most but not all tables.
+- Without taxonomy packages, `write_xbrl_xml` names the `.xsd` entry
+  point of a `.json` one by the EBA's naming convention, with an
+  `EntryPointWarning`.
 - Empty-string facts do not survive an xBRL-CSV round trip (`#empty` is
   skipped when read), and `Fact.decimals`, concepts and dimensions are not
   written to EBA-convention CSV.
@@ -28,5 +31,9 @@ description: What dpm-xbrl does not do - taxonomy validation, parts of xBRL-CSV 
   puts all dimensions in the scenario and uses one entity and instant. The
   XML writer holds the instance text in memory before writing it.
 - Fact locations in XML use the fact id rather than a line number.
-- Reading stops at the first problem that makes the input unreadable; it
-  does not collect every structural problem of a broken file.
+- Reading collects up to 100 structural problems of xBRL-CSV tables (row
+  lengths, quoting, headers) in `ReportError.problems`; other problems,
+  such as a broken `report.json` or parameters file, stop it at the first.
+  The frames reader stops at the first problem.
+- The 2.18 check does not apply the -3 minimum for monetary facts sent
+  before April 2025, and 3.2 (b) flags only percentages above 50.

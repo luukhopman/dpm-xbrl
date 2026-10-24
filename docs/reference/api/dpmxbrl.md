@@ -32,6 +32,10 @@ works on its own input and returns immutable results. See
 
 ::: dpmxbrl.default_package_root
 
+::: dpmxbrl.SkippedFacts
+
+::: dpmxbrl.EntryPointWarning
+
 ## Model
 
 ::: dpmxbrl.Report
@@ -49,6 +53,8 @@ works on its own input and returns immutable results. See
 ::: dpmxbrl.Severity
 
 ::: dpmxbrl.local_name
+
+::: dpmxbrl.filing_indicator_code
 
 ## Version
 

@@ -42,7 +42,7 @@ print(
 
 ```text
 accepted: 14 facts, 0 filing errors
-rejected: the report is not a readable ZIP archive: it may be incomplete or damaged
+rejected: broken.zip is not a readable ZIP archive: it may be incomplete or damaged
 rejected: evil.xbrl: DOCTYPE and ENTITY declarations are not allowed
 ```
 

@@ -75,6 +75,7 @@ def tasks(samples: Path, taxonomy: list[str], out: Path) -> list[Task]:
     read = [str(TASKS_DIR / "dpmxbrl_read.py")]
     packages = [item for path in taxonomy for item in ("--taxonomy-package", path)]
     arelle = str(TASKS_DIR / "arelle_load.py")
+    convert = str(TASKS_DIR / "dpmxbrl_convert.py")
     return [
         Task(
             "import",
@@ -168,11 +169,24 @@ def tasks(samples: Path, taxonomy: list[str], out: Path) -> list[Task]:
             "convert-xml-csv",
             "Convert `EBA-COREP_OF.xbrl` to xBRL-CSV",
             {
+                "dpm-xbrl": [convert, corep_xml, str(out / "corep.zip"), *taxonomy],
                 "eba-xbridge": [
                     str(TASKS_DIR / "xbridge_convert.py"),
                     corep_xml,
                     str(out),
-                ]
+                ],
+            },
+        ),
+        Task(
+            "convert-xml-csv-finrep",
+            "Convert `EBA-FINREP9.xbrl` to xBRL-CSV",
+            {
+                "dpm-xbrl": [convert, finrep_xml, str(out / "finrep.zip"), *taxonomy],
+                "eba-xbridge": [
+                    str(TASKS_DIR / "xbridge_convert.py"),
+                    finrep_xml,
+                    str(out),
+                ],
             },
         ),
     ]

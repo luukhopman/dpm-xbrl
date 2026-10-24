@@ -21,8 +21,8 @@ which anyone can re-run; the README there explains the setup.
 Rows above the line are dpm-xbrl's job; rows below help you choose a tool
 for work dpm-xbrl does not do.
 
-<!-- Keep in step with the code: conversion and filing-check rows change
-     when dpm-xbrl gains those features. -->
+<!-- Keep in step with the code: the conversion, filing-check and
+     structural-problem rows change when dpm-xbrl gains features. -->
 
 | | dpm-xbrl | eba-xbridge | Arelle | py-xbrl | brel-xbrl |
 | --- | --- | --- | --- | --- | --- |
@@ -30,11 +30,11 @@ for work dpm-xbrl does not do.
 | Read EBA xBRL-CSV report packages | yes | no (validates them) | yes, with the EBA taxonomy | no | no |
 | Read without the taxonomy | yes | yes, with bundled module metadata | no | no | no |
 | Millions of facts in seconds | yes, `frames` extra | no | no | no | no |
-| Write xBRL-CSV from XBRL-XML | no | yes | not evaluated | no | no |
-| Write XBRL-XML from xBRL-CSV | yes, with taxonomy packages and typed domains | no | not evaluated | no | no |
-| EBA filing rules checked from the file | v5.8, in the same pass as reading; [list](../reference/filing-rules.md) | yes, including taxonomy-aware checks (module dates, known entry points, canonical prefixes, rate notation) | EBA plugin for an older filing-rules version | no | no |
+| Write xBRL-CSV from XBRL-XML | yes, with the EBA taxonomy packages | yes | not evaluated | no | no |
+| Write XBRL-XML from xBRL-CSV | yes, with the EBA taxonomy packages | no | not evaluated | no | no |
+| EBA filing rules checked from the file | v5.8, in the same pass as reading; with the taxonomy packages also module dates, published entry points, templates, decimals per data type, rate notation and canonical prefixes; [list](../reference/filing-rules.md) | yes, including taxonomy-aware checks (module dates, known entry points, canonical prefixes, rate notation) | EBA plugin for an older filing-rules version | no | no |
 | Findings with EBA rule numbers and tags | yes | yes, with its own codes | yes, error codes | no | no |
-| Reports every structural problem of a broken file | no: stops at the first fatal one | yes, as coded findings | not evaluated | not evaluated | not evaluated |
+| Reports every structural problem of a broken file | xBRL-CSV tables: up to 100 problems in `ReportError.problems`; other files stop at the first | yes, as coded findings | not evaluated | not evaluated | not evaluated |
 | CLI with JSON output and a CI exit status | yes (`--json`, `--fail-on`) | JSON output (`xbridge validate`); exit status not evaluated | full CLI; not evaluated for CI | no | no |
 | Resource limits and DOCTYPE rejection for untrusted input | yes | not evaluated | not evaluated | not evaluated | not evaluated |
 | Works offline | yes | yes | yes, with local packages | no | no |
@@ -68,9 +68,17 @@ that the tool lacks it.
   builds one Python object per fact, about 5 µs and 0.7 KB each, and
   pauses the cyclic garbage collector while it does.
 - **Filing rules.** dpm-xbrl and eba-xbridge agree on the rules both
-  check. eba-xbridge checks more rules that need the module's metadata,
-  such as the reference date against the module's dates; dpm-xbrl checks
-  LEI check digits, which eba-xbridge does not.
+  check. With the taxonomy packages, dpm-xbrl also checks the rules that
+  need the module's metadata, such as the reference date against the
+  module's dates, and finds no rate-notation or canonical-prefix problems
+  in the official EBA samples; dpm-xbrl checks LEI check digits, which
+  eba-xbridge does not.
+- **Conversion.** dpm-xbrl places each XML fact in every table row whose
+  data point has its concept and dimensions, using the module's metadata
+  in the taxonomy packages. On all 53 official EBA sample pairs its tables,
+  datapoints and key columns are those of the EBA's own xBRL-CSV sample
+  (their values differ: the EBA generated each sample separately), and the
+  package read back with the taxonomy gives the instance's facts again.
 
 ## Reproduce
 

@@ -136,6 +136,38 @@ instance.xbrl:1:0: malformed XML (unclosed token: line 1, column 0)
 Catch `ReportError` alone: damaged ZIPs, unsafe entries, malformed JSON,
 CSV and XML, and inputs over a [limit](untrusted-input.md) all raise it.
 
+Its `problems` list every problem found. Broken xBRL-CSV tables, with rows
+of the wrong length, bad quoting or bad headers, are all read, up to 100
+problems, before the error is raised with the first as its message:
+
+```python
+import io
+from zipfile import ZipFile
+
+buffer = io.BytesIO()
+with ZipFile("report.zip") as source, ZipFile(buffer, "w") as target:
+    for name in source.namelist():
+        data = source.read(name)
+        if name.endswith("c_28.00.csv"):
+            data += b"dp5488015,1,CP0003,extra\r\ndp5488016\r\n"
+        if name.endswith("c_26.00.csv"):
+            data += b'dp32027,"12"3\r\n'
+        target.writestr(name, data)
+try:
+    read_report(buffer.getvalue(), name="report.zip")
+except ReportError as error:
+    print(error)
+    for problem in error.problems:
+        print(" ", problem)
+```
+
+```text
+reports/c_26.00.csv:6: ',' expected after '"' (and 2 more problems)
+  reports/c_26.00.csv:6: ',' expected after '"'
+  reports/c_28.00.csv:6: expected 3 cells, found 4
+  reports/c_28.00.csv:7: expected 3 cells, found 1
+```
+
 ## Read the warnings
 
 Problems that do not stop the read are kept in `Report.warnings`, in a

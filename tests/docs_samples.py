@@ -20,12 +20,10 @@ from tests.support import (
     CSV_DOCUMENT_TYPE,
     NAMESPACES,
     PACKAGE_DOCUMENT_TYPE,
-    closed_template_json,
     csv_text,
     metadata_files,
-    module_json,
-    open_template_json,
     report_json,
+    taxonomy_files,
 )
 
 SAMPLES = Path(__file__).resolve().parent.parent / "docs" / "samples"
@@ -178,21 +176,13 @@ INSTANCE = f"""<?xml version="1.0" encoding="UTF-8"?>
 
 
 def _taxonomy() -> dict[str, str]:
-    """Return a minimal taxonomy package that resolves ``described.zip``."""
-    base = "www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.0"
-    return {
-        "META-INF/catalog.xml": (
-            '<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog">\n'
-            '  <rewriteURI uriStartString="http://www.eba.europa.eu/eu/fr/xbrl/"'
-            ' rewritePrefix="../www.eba.europa.eu/eu/fr/xbrl/"/>\n'
-            "</catalog>\n"
-        ),
-        "META-INF/taxonomyPackage.xml": "<taxonomyPackage/>\n",
-        f"{base}/mod/corep_of.json": module_json(),
-        f"{base}/tab/c_01.00/c_01.00.json": closed_template_json(),
-        f"{base}/tab/c_27.00/c_27.00.json": open_template_json(),
-    }
+    """Return a small taxonomy package that resolves ``described.zip``.
+
+    It lists its entry point, documents the module's reference dates and
+    filing indicator codes, and holds the dimension, typed domain and metric
+    schemas the conversions and taxonomy checks use.
+    """
+    return taxonomy_files(full=True)
 
 
 def samples() -> dict[str, bytes]:
@@ -210,6 +200,9 @@ def samples() -> dict[str, bytes]:
     )
     described["reports/parameters.csv"] = described["reports/parameters.csv"].replace(
         "lei:5299000000000000000A", f"rs:{SUBJECT}"
+    )
+    described["reports/FilingIndicators.csv"] = csv_text(
+        "templateID,reported", "C_01.00,true", "C_27.00,true"
     )
     described["reports/c_01.00.csv"] = csv_text(
         "datapoint,factValue", "dp84817,1000", "dp84818,0.1234", "dp84820,Yes"

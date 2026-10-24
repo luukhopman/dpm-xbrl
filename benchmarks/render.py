@@ -28,9 +28,10 @@ ORDER = [
     "csv-7m-finrep-frames",
     "csv-22m-frames",
     "convert-xml-csv",
+    "convert-xml-csv-finrep",
 ]
 # Why a tool has no number for a task. Update these when a tool gains the
-# feature (for example XML to xBRL-CSV conversion in dpm-xbrl).
+# feature.
 NOT_APPLICABLE = {
     ("csv-corep", "eba-xbridge"): "cannot read xBRL-CSV",
     ("csv-corep-metadata", "eba-xbridge"): "cannot read xBRL-CSV",
@@ -45,8 +46,8 @@ NOT_APPLICABLE = {
     ("csv-7m-finrep-frames", "Arelle"): "not attempted",
     ("csv-22m-frames", "eba-xbridge"): "not measured",
     ("csv-22m-frames", "Arelle"): "not attempted",
-    ("convert-xml-csv", "dpm-xbrl"): "not supported",
     ("convert-xml-csv", "Arelle"): "n/a",
+    ("convert-xml-csv-finrep", "Arelle"): "n/a",
     ("csv-corep-metadata", "Arelle"): "n/a",
     ("csv-finrep", "Arelle"): "not measured",
 }
@@ -59,6 +60,9 @@ NOTES = {
     "`validate(eba=True)`.",
     "csv-7m-frames": "eba-xbridge cannot read xBRL-CSV; its time on the "
     "7.3-million-fact package is its `validate(eba=True)`.",
+    "convert-xml-csv": "dpm-xbrl converts with the EBA 4.2 taxonomy packages "
+    "(`write_xbrl_csv(..., taxonomy_packages=...)`), including opening them; "
+    "eba-xbridge uses the module metadata it bundles.",
 }
 
 

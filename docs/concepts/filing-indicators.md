@@ -34,16 +34,17 @@ the table file of a template whose filing indicator is false.
 
 `Fact.template` is always the template id, `c_07.00.a`, never the filing
 indicator. [`Report.facts_for_template`][dpmxbrl.Report.facts_for_template]
-compares case-insensitively but does **not** drop letter parts: it matches
-one template id. For a template split over lettered tables, group facts
-yourself:
+compares case-insensitively and matches a table by its template id or by
+its filing indicator, so `C_07.00` selects the facts of every lettered table
+of the template and `c_07.00.a` those of one table.
+[`filing_indicator_code`][dpmxbrl.filing_indicator_code] gives a table's
+filing indicator:
 
 ```python
 import io
-import re
 from zipfile import ZipFile
 
-from dpmxbrl import read_report
+from dpmxbrl import filing_indicator_code, read_report
 
 # report.zip plus a template split into two tables, and one filed as not reported.
 buffer = io.BytesIO()
@@ -71,21 +72,16 @@ print(
 ```
 
 ```text
-0 1
+2 1
 ```
 
+To group every fact by filing indicator:
+
 ```python
-LETTER_PART = re.compile(r"\.[a-z](?=\.|$)", re.IGNORECASE)
-
-
-def filing_indicator(template: str) -> str:
-    """Return the casefolded filing-indicator code of a table code."""
-    return LETTER_PART.sub("", template).casefold()
-
-
 by_indicator = {}
 for fact in report.facts:
-    by_indicator.setdefault(filing_indicator(fact.template), []).append(fact)
+    code = filing_indicator_code(fact.template).casefold()
+    by_indicator.setdefault(code, []).append(fact)
 reported = {code.casefold(): filed for code, filed in report.filing_indicators.items()}
 for code, facts in sorted(by_indicator.items()):
     print(code, len(facts), reported.get(code))
@@ -117,7 +113,7 @@ print(
 ```
 
 The frames reader keys `ReportFrames.tables` by template id too, so the
-same recipe groups frames.
+same recipe, with `filing_indicator_code`, groups frames.
 
 ## XML reports
 

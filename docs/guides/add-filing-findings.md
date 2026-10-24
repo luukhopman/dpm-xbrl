@@ -4,10 +4,13 @@ description: Record taxonomy-aware filing findings with FilingLog and the rule t
 
 # Add your own filing findings
 
-The readers check the filing rules that the report file alone can show.
-Rules that need the taxonomy, such as which templates a module has or a
-data point's data type, are left to you. This guide shows how to record
-your findings in the same form, so that one list holds them all.
+The readers check the filing rules that the report file alone can show,
+and, given taxonomy packages, those that need the module's templates and
+data types. Other rules, and checks from your own sources, are left to
+you. This guide shows how to record your findings in the same form, so
+that one list holds them all; check
+[`CHECKED_RULES`][dpmxbrl.filing.CHECKED_RULES] so as not to repeat one
+the reader made.
 
 ## Record findings with `FilingLog`
 
@@ -17,7 +20,8 @@ and keeps up to five locations per finding. A finding is identified by a
 severity and the message.
 
 Rule 1.6 requires a filing indicator for every template of the module.
-Only the taxonomy knows the module's templates, so the check is yours:
+The readers check it with taxonomy packages; without them, or with a list
+of templates from elsewhere, such as the DPM database, the check is yours:
 
 ```python
 import dataclasses

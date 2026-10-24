@@ -54,11 +54,14 @@ The sample `report.zip` is in
   dataclasses, with every value as written and its file and line.
 - **EBA filing rules**: each report lists the rules of the EBA Filing Rules
   v5.8 that the file breaks, with the rule number, tag, severity and
-  locations; add your own taxonomy-aware findings in the same form.
+  locations; with the taxonomy packages also those that need the module,
+  such as reference dates, templates and decimals per data type.
 - **Millions of facts**: the `frames` extra reads a 7-million-fact package
   into polars frames in about a second.
-- **Writing**: deterministic xBRL-CSV packages and XBRL-XML instances that
-  read back as written.
+- **Writing and conversion**: deterministic xBRL-CSV packages and XBRL-XML
+  instances that read back as written; with the EBA taxonomy packages,
+  XBRL-XML converts to xBRL-CSV and back, about 3 seconds for a
+  21,000-fact report.
 - **Offline**: nothing is fetched over the network; xBRL-CSV metadata
   resolves through local taxonomy packages.
 - **Safe on untrusted input**: resource limits, ZIP and XML hardening, and

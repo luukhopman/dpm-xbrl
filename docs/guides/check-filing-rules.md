@@ -154,13 +154,46 @@ print([finding.code for finding in renamed.filing])
 The name is right; what remains is that the package's root folder must be
 named as the file, without `.zip`. Rename the folder inside the ZIP, or
 write the package again with
-[`write_xbrl_csv(report, target, root=...)`][dpmxbrl.write_xbrl_csv].
+[`write_xbrl_csv(report, target)`][dpmxbrl.write_xbrl_csv], which names the
+folder as the file.
 
 ## Rules that need the taxonomy
 
-Some rules need the taxonomy, such as which templates a module has, or a
-data point's data type: a filing indicator for every template of the module
-(1.6), facts outside the reported templates (1.7.1), minimum decimals per
-data type (2.18), and spaces around string values (3.11). The readers leave
-them to you; [add your own filing findings](add-filing-findings.md) shows how
-to record them in the same form.
+Some rules need the taxonomy: which entry points the EBA publishes and the
+reference dates of each module (1.5), which templates a module has (1.6,
+1.6.3), and a data point's data type (2.18, 3.2 (b)). Pass the
+[taxonomy packages](taxonomy-packages.md) and the readers check these too,
+and only then:
+
+```python
+import io
+from zipfile import ZipFile
+
+buffer = io.BytesIO()
+with ZipFile("described.zip") as source, ZipFile(buffer, "w") as target:
+    for name in source.namelist():
+        data = source.read(name)
+        if name.endswith("parameters.csv"):
+            data = data.replace(b"decimalsMonetary,-3", b"decimalsMonetary,-6")
+        if name.endswith("FilingIndicators.csv"):
+            data += b"C_99.00,false\r\n"
+        target.writestr(name, data)
+data = buffer.getvalue()
+for taxonomy_packages in ((), ["taxonomy.zip"]):
+    report = read_report(
+        data, name="described.zip", taxonomy_packages=taxonomy_packages
+    )
+    print([(finding.rule, finding.code) for finding in report.filing])
+```
+
+```text
+[('File naming', 'invalidFileName')]
+[('1.6.3', 'invalidFilingIndicatorValue'), ('2.18', 'accuracyRequirements'), ('File naming', 'invalidFileName')]
+```
+
+The [rules each mode checks](../reference/filing-rules.md#what-each-mode-checks)
+lists them, and [`CHECKED_RULES`][dpmxbrl.filing.CHECKED_RULES] gives them
+as `(rule, code)` pairs. Facts outside the reported templates (1.7.1) and
+spaces around string values (3.11) are left to you;
+[add your own filing findings](add-filing-findings.md) shows how to record
+them in the same form.

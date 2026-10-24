@@ -47,10 +47,12 @@ for fact in report.facts_for_template("C_28.00"):
 | Task | Call |
 | --- | --- |
 | Read any report | `dpmxbrl.read_report(source, name=None, metadata_resolver=None, taxonomy_packages=(), limits=Limits())` |
-| Read one format | `read_xbrl_csv(...)`, `read_xbrl_xml(source, name=None, limits=Limits())` |
-| Detect the format | `detect_format(source) -> "xbrl-csv" \| "xbrl-xml"` |
+| Read one format | `read_xbrl_csv(...)`, `read_xbrl_xml(source, name=None, taxonomy_packages=(), limits=Limits())` |
+| Detect the format | `detect_format(source, name=None) -> "xbrl-csv" \| "xbrl-xml"` |
 | Millions of facts | `dpmxbrl.frames.read_xbrl_csv_frames(source, ...) -> ReportFrames` (`frames` extra) |
-| Write | `write_xbrl_csv(report, target, root=None)`, `write_xbrl_xml(report, target, typed_domains=None)` |
+| Write | `write_xbrl_csv(report, target, root=None, taxonomy_packages=(), strict=True) -> SkippedFacts`, `write_xbrl_xml(report, target, typed_domains=None, taxonomy_packages=())` |
+| Convert | Read, then write with `taxonomy_packages`, or `dpm-xbrl convert IN OUT --taxonomy-package ZIP` |
+| Avoid duplicate findings | `dpmxbrl.filing.CHECKED_RULES[mode]`: the `(rule, code)` pairs a reader checks |
 | Gate on filing rules | `[f for f in report.filing if f.severity == "error"]`, or `dpm-xbrl inspect PATH --fail-on error` (exit 3) |
 | Add findings | `dpmxbrl.filing.FilingLog`: `.extend(report.filing)`, `.add(*rule_tuple, location)`, `.result()` |
 | Change a report | `dataclasses.replace(report, filing=..., entry_point=...)` |
@@ -80,14 +82,18 @@ for fact in report.facts_for_template("C_28.00"):
 - **XML facts have no datapoint or template.** `facts_for_template` returns
   nothing for XML reports; identify XML facts by `concept` and `dimensions`.
 - **Template ids are not filing indicators.** A file `c_07.00.a.csv` has
-  `Fact.template == "c_07.00.a"`, filed as `C_07.00`; `facts_for_template`
-  ignores case but not the letter part. See
+  `Fact.template == "c_07.00.a"`, filed as `C_07.00`;
+  `facts_for_template` matches either, ignoring case, and
+  `filing_indicator_code` maps one to the other. See
   [table codes and filing indicators](concepts/filing-indicators.md).
 - **Warnings are not filing findings.** Gate on `report.filing`, not on
   `report.warnings`.
-- **Conversion needs metadata.** EBA-convention CSV cannot be written as
-  XML, and XML cannot be written as CSV. See
+- **Conversion needs the taxonomy packages.** Without them, EBA-convention
+  CSV cannot be written as XML, and XML cannot be written as CSV. See
   [convert between formats](guides/convert-formats.md).
+- **Taxonomy checks need the packages.** 1.5 (published entry point and
+  reference dates), 1.6 (each template), 1.6.3, 2.18, 3.2 (b) and 3.5 are
+  checked only with `taxonomy_packages`.
 - **Bytes need a name.** Pass `name=` with the real file name when reading
   bytes, or the file-naming rule checks `<bytes>`.
 - **Large reports.** `read_report` costs about 5 µs and 0.7 KB per fact.
