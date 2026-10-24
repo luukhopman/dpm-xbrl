@@ -10,6 +10,10 @@ All notable changes to this project are documented here. The project follows
 - `dpm-xbrl inspect --fail-on error|warning` exits with status 2 when the
   report breaks a filing rule of that severity; `--version`, and examples in
   `--help`.
+- `dpmxbrl.__version__`; `inspect --json` output carries `schema_version`.
+- The public API is documented: every name in the `__all__` of `dpmxbrl`,
+  `dpmxbrl.filing` and `dpmxbrl.frames`, and how table codes map to filing
+  indicators.
 
 ### Changed
 

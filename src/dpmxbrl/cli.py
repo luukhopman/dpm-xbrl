@@ -16,11 +16,15 @@ from .model import Report, ReportError
 from .reader import read_report
 from .writer import write_xbrl_csv, write_xbrl_xml
 
+JSON_SCHEMA_VERSION = 1
+"""Version of the ``inspect --json`` layout; it changes only with a new major."""
+
 
 def _summary(report: Report) -> dict[str, Any]:
     templates = Counter(fact.template or "(none)" for fact in report.facts)
     reported = sum(1 for value in report.filing_indicators.values() if value)
     return {
+        "schema_version": JSON_SCHEMA_VERSION,
         "format": report.format,
         "entry_point": report.entry_point,
         "entity_scheme": report.entity_scheme,

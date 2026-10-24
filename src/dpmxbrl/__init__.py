@@ -1,5 +1,6 @@
 """Read and write EBA-style xBRL-CSV and XBRL-XML regulatory reports."""
 
+from ._version import __version__
 from .csv_reader import read_xbrl_csv
 from .model import (
     Fact,
@@ -23,6 +24,7 @@ __all__ = [
     "ReportError",
     "ReportFormat",
     "Severity",
+    "__version__",
     "default_package_root",
     "detect_format",
     "local_name",

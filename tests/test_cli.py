@@ -34,6 +34,7 @@ def test_inspect_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
 
     assert main(["inspect", str(path), "--json"]) == 0
     summary = json.loads(capsys.readouterr().out)
+    assert summary["schema_version"] == 1
 
     assert summary["format"] == "xbrl-xml"
     assert summary["reference_date"] == "2024-12-31"

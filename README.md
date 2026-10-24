@@ -87,6 +87,9 @@ path as xBRL-CSV and everything else as XBRL-XML. Every failure raises
   `reported` one of `true`, `false`, `1`, `0`.
 - Every other `*.csv` under the reports folder is a table. Its template id is
   the file stem unless the metadata `tables` maps the file URL to a template.
+  A table's filing indicator is its template id without single-letter parts
+  and compared case-insensitively: `c_07.00.a` is filed as `C_07.00`,
+  `f_18.00.a.dp` as `F_18.00.dp`.
 
 **EBA convention (no metadata).** Tables need `datapoint` and `factValue`
 columns; every other column is a key column kept in `Fact.keys`. Each row with
@@ -272,8 +275,10 @@ dpm-xbrl --version
 
 `inspect` prints the format, entry point, entity, reference date, base
 currency, filing indicators (reported of total), the fact count per template,
-the warnings and the EBA filing rules the report breaks. `convert` chooses the output format from the suffix: `.zip`
-writes xBRL-CSV, `.xbrl` or `.xml` writes XBRL-XML. Errors print `error: ...`
+the warnings and the EBA filing rules the report breaks; with `--json` it
+prints them as an object that also carries `schema_version` (1). `convert`
+chooses the output format from the suffix: `.zip` writes xBRL-CSV, `.xbrl` or
+`.xml` writes XBRL-XML. Errors print `error: ...`
 and exit with status 1. With `--fail-on`, `inspect` exits with status 2 when
 the report breaks a filing rule of that severity (`warning` includes errors),
 so a pipeline can stop on reports the EBA would reject.
@@ -298,10 +303,13 @@ EBA filing rules broken: 1 must be fixed, 3 recommended
 ## Stability
 
 Releases follow [semantic versioning](https://semver.org). The public API is
-everything documented here: the names exported by `dpmxbrl`, `dpmxbrl.filing`
-and `dpmxbrl.frames`, the fields of `Report`, `Fact`, `FilingFinding` and
-`Limits`, the CLI and the `ReportError` contract. Modules whose names start
-with an underscore are internal. Warning texts and filing-finding messages may
+everything documented here: the names in the `__all__` of `dpmxbrl`,
+`dpmxbrl.filing` (including `FilingLog` and `Rule`, with which callers add
+their own findings, and `RULE_TITLES`) and `dpmxbrl.frames` (including the
+`on_metadata` and `on_table` callbacks), the fields of `Report`, `Fact`,
+`FilingFinding` and `Limits`, the CLI with its `--json` layout and exit
+statuses, and the `ReportError` contract. Modules whose names start with an
+underscore are internal; `dpmxbrl.__version__` gives the installed version. Warning texts and filing-finding messages may
 be reworded in minor releases; rule numbers and codes may not. See
 [CHANGELOG.md](https://github.com/luukhopman/dpm-xbrl/blob/main/CHANGELOG.md) for what changed in each release.
 
