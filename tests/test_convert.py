@@ -759,3 +759,29 @@ def test_catalog_doctype_without_internal_subset_is_read(
     buffer = io.BytesIO()
     write_xbrl_xml(csv_report, buffer, taxonomy_packages=[package])
     assert b"<eba_typ:CC>" in buffer.getvalue()
+
+
+def test_xml_declares_exactly_the_prefixes_it_uses(csv_report: Report) -> None:
+    namespaces = {
+        **csv_report.namespaces,
+        "eba_RP": "http://www.eba.europa.eu/xbrl/crr/dict/dom/RP",
+        "unused": "http://example.com/unused",
+    }
+    enumeration = Fact("eba_RP:x105", concept="eba_met:ei2", location="enumeration")
+    report = replace(
+        csv_report,
+        namespaces=namespaces,
+        facts=(enumeration,),
+        filing_indicators={},
+        entry_point=ENTRY_POINT_XSD,
+    )
+    buffer = io.BytesIO()
+    write_xbrl_xml(report, buffer)
+    text = buffer.getvalue().decode()
+    root = text.splitlines()[1]
+    assert 'xmlns:eba_RP="' in root
+    assert 'xmlns:eba_met="' in root
+    assert "xmlns:unused" not in root
+    assert "xmlns:xbrldi" not in root
+    assert "xmlns:find" not in root
+    assert read_report(buffer.getvalue()).facts[0].value == "eba_RP:x105"

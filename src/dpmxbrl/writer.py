@@ -537,8 +537,6 @@ def _json_bytes(value: object) -> bytes:
 
 # XML names: a letter or underscore, then letters, digits, "_", "." or "-".
 _NCNAME = re.compile(r"[^\W\d][\w.\-\u00b7\u0300-\u036f\u203f-\u2040]*")
-_PREFIX_USE = re.compile(r"([^\W\d][\w.\-\u00b7]*):")
-"""A name followed by a colon: a prefix in a tag, attribute or qname value."""
 _XML_ILLEGAL = re.compile(r"[^\t\n\r\x20-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]")
 
 
@@ -564,6 +562,8 @@ def _attribute(value: str) -> str:
 class _Namespaces:
     def __init__(self, declared: Mapping[str, str]) -> None:
         self.declared = {prefix: uri for prefix, uri in declared.items() if prefix}
+        self.used: set[str] = set()
+        """Prefixes the written instance uses, so far."""
         for prefix in self.declared:
             if not _NCNAME.fullmatch(prefix):
                 raise ReportError(f"{prefix!r} is not a valid namespace prefix")
@@ -586,7 +586,16 @@ class _Namespaces:
             )
         if not _NCNAME.fullmatch(local):
             raise ReportError(f"{where}: {qname!r} has an invalid local name")
+        self.used.add(prefix)
         return qname
+
+    def note_value(self, value: str) -> None:
+        """Record the prefixes of qnames a fact or typed value may hold."""
+        if ":" in value:
+            for token in value.split():
+                prefix = token.partition(":")[0]
+                if prefix in self.declared:
+                    self.used.add(prefix)
 
 
 def write_xbrl_xml(
@@ -822,9 +831,11 @@ def _xml_lines(
                 decimals = "INF" if fact.decimals is None else str(fact.decimals)
                 attributes.append(f"decimals={_attribute(decimals)}")
         if fact.value is None:
+            namespaces.used.add(xsi)
             attributes.append(f'{xsi}:nil="true"')
             fact_lines.append(f"  <{concept} {' '.join(attributes)}/>")
         else:
+            namespaces.note_value(fact.value)
             value = _text(fact.value, where)
             fact_lines.append(
                 f"  <{concept} {' '.join(attributes)}>{value}</{concept}>"
@@ -873,6 +884,7 @@ def _xml_lines(
             )
             for dimension in sorted(typed):
                 domain = domains[dimension]
+                namespaces.note_value(typed[dimension])
                 lines.append(
                     f"      <{xbrldi}:typedMember dimension={_attribute(dimension)}>"
                     f"<{domain}>{_text(typed[dimension])}</{domain}>"
@@ -905,9 +917,11 @@ def _xml_lines(
     lines.extend(fact_lines)
     lines.append(f"</{xbrli}:xbrl>")
     # Declare only the prefixes the instance uses (filing rule 3.4).
-    used = {xbrli, link, xlink}
-    for line in lines[2:]:
-        used.update(_PREFIX_USE.findall(line))
+    used = namespaces.used | {xbrli, link, xlink}
+    if report.filing_indicators:
+        used.add(find)
+    if any(dimensions or typed for _, dimensions, typed in context_dimensions):
+        used.add(xbrldi)
     lines[1] = (
         f"<{xbrli}:xbrl "
         + " ".join(
