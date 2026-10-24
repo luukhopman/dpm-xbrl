@@ -323,16 +323,37 @@ def write_xbrl_xml(
     if report.reference_date is None:
         raise ReportError("XBRL-XML output requires a reference date")
     namespaces = _Namespaces(report.namespaces)
-    # A domain element in Clark notation, {namespace}local, gets a prefix.
-    domains = {
-        dimension: (
-            f"{namespaces.prefix(element[1:].partition('}')[0], 'typ')}:"
-            f"{element.partition('}')[2]}"
-            if element.startswith("{") and "}" in element
-            else element
-        )
-        for dimension, element in (typed_domains or {}).items()
-    }
+    given = dict(typed_domains or {})
+    domains: dict[str, str] = {}
+
+    def resolve_domain(dimension: str, where: str) -> str:
+        """Prefix the typed domain of a dimension a fact uses, once.
+
+        Returns:
+            str: The domain element's prefixed qname.
+
+        Raises:
+            ReportError: If no domain is given, or it is not a valid qname.
+        """
+        if dimension in domains:
+            return domains[dimension]
+        if dimension not in given:
+            raise ReportError(
+                f"{where}: no typed domain element given for typed "
+                f"dimension {dimension}"
+            )
+        element = given[dimension]
+        if element.startswith("{"):
+            # Clark notation, {namespace}local: declare the namespace.
+            uri, closed, local = element[1:].partition("}")
+            if not closed or not uri:
+                raise ReportError(
+                    f"typed domain of {dimension}: {element!r} needs a namespace"
+                )
+            element = f"{namespaces.prefix(uri, 'typ')}:{local}"
+        domains[dimension] = namespaces.check(element, f"typed domain of {dimension}")
+        return domains[dimension]
+
     xbrli = namespaces.prefix(XBRLI, "xbrli")
     link = namespaces.prefix(LINK, "link")
     xlink = namespaces.prefix(XLINK, "xlink")
@@ -373,12 +394,7 @@ def write_xbrl_xml(
             namespaces.check(member, where)
         for dimension in fact.typed_dimensions:
             namespaces.check(dimension, where)
-            if dimension not in domains:
-                raise ReportError(
-                    f"{where}: no typed domain element given for typed "
-                    f"dimension {dimension}"
-                )
-            namespaces.check(domains[dimension], f"typed domain of {dimension}")
+            resolve_domain(dimension, where)
         context = context_id(fact.dimensions, fact.typed_dimensions)
         attributes = [f"contextRef={_attribute(context)}"]
         if fact.unit is not None:

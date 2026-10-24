@@ -249,3 +249,16 @@ def test_typed_domains_may_use_clark_notation() -> None:
     assert 'xmlns:typ="http://example.com/typ"' in text
     assert "<typ:CC>" in text
     assert _xml_view(read_report(target.getvalue())) == _xml_view(report)
+
+
+def test_typed_domains_need_a_namespace_and_are_declared_only_when_used() -> None:
+    report = read_report(XML_INSTANCE.encode())
+    with pytest.raises(ReportError, match="needs a namespace"):
+        write_xbrl_xml(report, io.BytesIO(), typed_domains=dict.fromkeys(TYPED, "{}CC"))
+    target = io.BytesIO()
+    write_xbrl_xml(
+        report,
+        target,
+        typed_domains={**TYPED, "eba_dim:qUNUSED": "{http://example.com/unused}X"},
+    )
+    assert "http://example.com/unused" not in target.getvalue().decode()
