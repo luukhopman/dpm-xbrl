@@ -167,7 +167,7 @@ def _parser() -> argparse.ArgumentParser:
     inspect.add_argument(
         "--fail-on",
         choices=("error", "warning"),
-        help="exit with status 2 when the report breaks a filing rule of this "
+        help="exit with status 3 when the report breaks a filing rule of this "
         "severity or worse",
     )
     convert = commands.add_parser(
@@ -185,7 +185,8 @@ def _parser() -> argparse.ArgumentParser:
     convert.add_argument("--root", help="top-level folder name (xBRL-CSV output)")
     for command in (inspect, convert):
         limits = command.add_argument_group(
-            "limits", "resource limits for untrusted input (defaults in the README)"
+            "limits",
+            "resource limits for untrusted input (defaults in the documentation)",
         )
         for option, help_text in (
             ("--max-file-size", "largest uncompressed file, in bytes"),
