@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The project follows
 
 ## Unreleased
 
+### Added
+
+- A documentation site at https://luukhopman.github.io/dpm-xbrl/, with
+  `llms.txt` and `llms-full.txt` for AI agents.
+
 ### Fixed
 
 - `inspect --help` gives 3, not 2, as the `--fail-on` exit status.

@@ -103,6 +103,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Tests need no docstrings; fixture XML and JSON lines stay readable unwrapped.
 "tests/*" = ["D", "DOC", "line-too-long"]
+# The docs build runs the zensical command it is given, never user input.
+"scripts/*" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true"]
 # The XML reader rejects DOCTYPE/ENTITY declarations before parsing and never
 # resolves external entities.
 "src/dpmxbrl/xml_reader.py" = ["suspicious-xml-element-tree-usage", "suspicious-xml-etree-import"]

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance"
+    xmlns:link="http://www.xbrl.org/2003/linkbase"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xbrldi="http://xbrl.org/2006/xbrldi"
+    xmlns:find="http://www.eurofiling.info/xbrl/ext/filing-indicators"
+    xmlns:iso4217="http://www.xbrl.org/2003/iso4217"
+    xmlns:eba_met="http://www.eba.europa.eu/xbrl/crr/dict/met"
+    xmlns:eba_dim="http://www.eba.europa.eu/xbrl/crr/dict/dim"
+    xmlns:eba_typ="http://www.eba.europa.eu/xbrl/crr/dict/typ"
+    xmlns:eba_qCO="http://www.eba.europa.eu/xbrl/crr/dict/dom/qCO">
+  <link:schemaRef xlink:type="simple"
+      xlink:href="http://www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.2/mod/corep_le.xsd"/>
+  <find:fIndicators>
+    <find:filingIndicator contextRef="c0">C_26.00</find:filingIndicator>
+    <find:filingIndicator contextRef="c0">C_27.00</find:filingIndicator>
+    <find:filingIndicator contextRef="c0" find:filed="false">C_29.00</find:filingIndicator>
+  </find:fIndicators>
+  <xbrli:context id="c0">
+    <xbrli:entity>
+      <xbrli:identifier scheme="https://eurofiling.info/eu/rs">529900T8BM49AURSDO55.CON</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period><xbrli:instant>2025-12-31</xbrli:instant></xbrli:period>
+  </xbrli:context>
+  <xbrli:context id="c1">
+    <xbrli:entity>
+      <xbrli:identifier scheme="https://eurofiling.info/eu/rs">529900T8BM49AURSDO55.CON</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period><xbrli:instant>2025-12-31</xbrli:instant></xbrli:period>
+    <xbrli:scenario>
+      <xbrldi:explicitMember dimension="eba_dim:qNCO">eba_qCO:qx2000</xbrldi:explicitMember>
+      <xbrldi:typedMember dimension="eba_dim:qINC"><eba_typ:qCC>CP0001</eba_typ:qCC></xbrldi:typedMember>
+    </xbrli:scenario>
+  </xbrli:context>
+  <xbrli:unit id="u1"><xbrli:measure>iso4217:EUR</xbrli:measure></xbrli:unit>
+  <xbrli:unit id="u2"><xbrli:measure>xbrli:pure</xbrli:measure></xbrli:unit>
+  <eba_met:mi53 id="f1" contextRef="c0" unitRef="u1" decimals="-3">56058000</eba_met:mi53>
+  <eba_met:pi1 id="f2" contextRef="c0" unitRef="u2" decimals="4">0.71</eba_met:pi1>
+  <eba_met:qNCO id="f3" contextRef="c1">Northwind Holdings</eba_met:qNCO>
+</xbrli:xbrl>
