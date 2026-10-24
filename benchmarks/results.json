@@ -2,36 +2,36 @@
   "results": {
     "import": {
       "dpm-xbrl": {
-        "best_s": 0.16,
-        "rss_mb": 23,
+        "best_s": 0.09,
+        "rss_mb": 24,
         "runs_s": [
-          0.16,
-          0.18,
-          0.19
+          0.09,
+          0.1,
+          0.1
         ],
         "status": 0,
         "output": "",
         "title": "Import the package"
       },
       "eba-xbridge": {
-        "best_s": 0.53,
+        "best_s": 0.33,
         "rss_mb": 71,
         "runs_s": [
-          0.62,
-          0.61,
-          0.53
+          0.38,
+          0.38,
+          0.33
         ],
         "status": 0,
         "output": "",
         "title": "Import the package"
       },
       "Arelle": {
-        "best_s": 0.45,
+        "best_s": 0.46,
         "rss_mb": 63,
         "runs_s": [
-          0.47,
-          0.48,
-          0.45
+          0.46,
+          0.46,
+          0.47
         ],
         "status": 0,
         "output": "",
@@ -40,24 +40,24 @@
     },
     "xml-corep": {
       "dpm-xbrl": {
-        "best_s": 2.21,
+        "best_s": 1.27,
         "rss_mb": 82,
         "runs_s": [
-          2.4,
-          2.21,
-          2.72
+          1.29,
+          1.27,
+          1.27
         ],
         "status": 0,
         "output": "21314 facts 4 findings",
         "title": "Read `EBA-COREP_OF.xbrl` (22.9 MB, 21,314 facts)"
       },
       "eba-xbridge": {
-        "best_s": 5.73,
-        "rss_mb": 460,
+        "best_s": 3.56,
+        "rss_mb": 461,
         "runs_s": [
-          5.73,
-          6.21,
-          6.5
+          3.56,
+          3.67,
+          3.67
         ],
         "status": 0,
         "output": "21314 facts",
@@ -76,24 +76,24 @@
     },
     "xml-finrep": {
       "dpm-xbrl": {
-        "best_s": 1.12,
+        "best_s": 0.81,
         "rss_mb": 61,
         "runs_s": [
-          1.41,
-          1.17,
-          1.12
+          0.82,
+          0.81,
+          0.82
         ],
         "status": 0,
         "output": "13384 facts 4 findings",
         "title": "Read `EBA-FINREP9.xbrl` (13.3 MB, 13,384 facts)"
       },
       "eba-xbridge": {
-        "best_s": 2.72,
-        "rss_mb": 301,
+        "best_s": 2.06,
+        "rss_mb": 302,
         "runs_s": [
-          2.72,
-          2.84,
-          2.87
+          2.06,
+          2.08,
+          2.07
         ],
         "status": 0,
         "output": "13384 facts",
@@ -112,12 +112,12 @@
     },
     "csv-corep": {
       "dpm-xbrl": {
-        "best_s": 0.35,
+        "best_s": 0.23,
         "rss_mb": 37,
         "runs_s": [
-          0.36,
-          0.39,
-          0.35
+          0.23,
+          0.23,
+          0.23
         ],
         "status": 0,
         "output": "25677 facts 3 findings",
@@ -136,26 +136,26 @@
     },
     "csv-corep-metadata": {
       "dpm-xbrl": {
-        "best_s": 1.33,
-        "rss_mb": 105,
+        "best_s": 1.27,
+        "rss_mb": 161,
         "runs_s": [
-          1.33,
-          1.38,
-          1.35
+          1.27,
+          1.28,
+          1.27
         ],
         "status": 0,
-        "output": "25677 facts 3 findings",
+        "output": "25677 facts 4 findings",
         "title": "Read `EBA-COREP_OF.csv.zip` with the taxonomy's metadata resolved"
       }
     },
     "csv-finrep": {
       "dpm-xbrl": {
-        "best_s": 0.26,
+        "best_s": 0.16,
         "rss_mb": 30,
         "runs_s": [
-          0.29,
-          0.26,
-          0.27
+          0.16,
+          0.16,
+          0.17
         ],
         "status": 0,
         "output": "14148 facts 3 findings",
@@ -164,24 +164,24 @@
     },
     "filing-xml-corep": {
       "dpm-xbrl": {
-        "best_s": 1.85,
-        "rss_mb": 83,
+        "best_s": 1.28,
+        "rss_mb": 82,
         "runs_s": [
-          2.1,
-          1.85,
-          2.13
+          1.31,
+          1.28,
+          1.29
         ],
         "status": 0,
         "output": "21314 facts 4 findings",
         "title": "EBA filing-rule check, `EBA-COREP_OF.xbrl`"
       },
       "eba-xbridge": {
-        "best_s": 19.63,
-        "rss_mb": 1123,
+        "best_s": 18.29,
+        "rss_mb": 1124,
         "runs_s": [
-          27.93,
-          22.79,
-          19.63
+          18.33,
+          18.29,
+          18.61
         ],
         "status": 0,
         "output": "5 distinct finding codes",
@@ -202,12 +202,12 @@
         "title": "EBA filing-rule check, `EBA-COREP_OF.csv.zip`"
       },
       "eba-xbridge": {
-        "best_s": 1.55,
-        "rss_mb": 152,
+        "best_s": 1.51,
+        "rss_mb": 153,
         "runs_s": [
-          1.55,
-          1.56,
-          1.55
+          1.59,
+          1.51,
+          1.59
         ],
         "status": 0,
         "output": "3 distinct finding codes",
@@ -216,24 +216,24 @@
     },
     "csv-7m-frames": {
       "dpm-xbrl": {
-        "best_s": 0.94,
-        "rss_mb": 942,
+        "best_s": 0.9,
+        "rss_mb": 941,
         "runs_s": [
-          0.95,
-          0.94,
-          0.95
+          0.92,
+          0.91,
+          0.9
         ],
         "status": 0,
         "output": "7300006 facts 2 findings",
         "title": "Read COREP_LE, 7.3 million facts (`frames` for dpm-xbrl)"
       },
       "eba-xbridge": {
-        "best_s": 22.82,
+        "best_s": 23.07,
         "rss_mb": 2261,
         "runs_s": [
-          22.82,
-          22.9,
-          22.91
+          23.3,
+          23.41,
+          23.07
         ],
         "status": 0,
         "output": "5 distinct finding codes",
@@ -242,12 +242,12 @@
     },
     "csv-7m-finrep-frames": {
       "dpm-xbrl": {
-        "best_s": 1.62,
-        "rss_mb": 1219,
+        "best_s": 1.5,
+        "rss_mb": 1213,
         "runs_s": [
-          1.62,
-          1.64,
-          1.62
+          1.51,
+          1.5,
+          1.57
         ],
         "status": 0,
         "output": "7286310 facts 2 findings",
@@ -256,12 +256,12 @@
     },
     "csv-22m-frames": {
       "dpm-xbrl": {
-        "best_s": 2.26,
-        "rss_mb": 2187,
+        "best_s": 2.15,
+        "rss_mb": 2195,
         "runs_s": [
-          2.34,
-          2.28,
-          2.26
+          2.18,
+          2.15,
+          2.17
         ],
         "status": 0,
         "output": "21900006 facts 2 findings",
@@ -270,24 +270,24 @@
     },
     "convert-xml-csv": {
       "eba-xbridge": {
-        "best_s": 40.14,
-        "rss_mb": 498,
+        "best_s": 41.69,
+        "rss_mb": 499,
         "runs_s": [
-          40.14,
-          40.29,
-          40.39
+          41.91,
+          41.88,
+          41.69
         ],
         "status": 0,
-        "output": "/tmp/dpmxbrl-bench-fgbiwkxp/EBA-COREP_OF.zip",
+        "output": "/tmp/dpmxbrl-bench-7t0kizxp/EBA-COREP_OF.zip",
         "title": "Convert `EBA-COREP_OF.xbrl` to xBRL-CSV"
       },
       "dpm-xbrl": {
-        "best_s": 2.36,
+        "best_s": 2.47,
         "rss_mb": 141,
         "runs_s": [
-          2.36,
-          2.37,
-          2.37
+          2.47,
+          2.51,
+          2.48
         ],
         "status": 0,
         "output": "21314 facts 0 left out",
@@ -308,27 +308,27 @@
     },
     "convert-xml-csv-finrep": {
       "dpm-xbrl": {
-        "best_s": 1.43,
+        "best_s": 1.47,
         "rss_mb": 91,
         "runs_s": [
-          1.43,
-          1.43,
-          1.43
+          12.49,
+          4.02,
+          1.47
         ],
         "status": 0,
         "output": "13384 facts 0 left out",
         "title": "Convert `EBA-FINREP9.xbrl` to xBRL-CSV"
       },
       "eba-xbridge": {
-        "best_s": 26.77,
-        "rss_mb": 323,
+        "best_s": 27.67,
+        "rss_mb": 324,
         "runs_s": [
-          26.9,
-          26.78,
-          26.77
+          27.79,
+          27.67,
+          27.69
         ],
         "status": 0,
-        "output": "/tmp/dpmxbrl-bench-fgbiwkxp/EBA-FINREP9.zip",
+        "output": "/tmp/dpmxbrl-bench-7t0kizxp/EBA-FINREP9.zip",
         "title": "Convert `EBA-FINREP9.xbrl` to xBRL-CSV"
       }
     }
@@ -345,11 +345,11 @@
     "cores": 8,
     "memory": "15 GB",
     "load_average": [
-      2.2,
-      2.2,
-      2.5
+      2.7,
+      2.8,
+      3.1
     ],
-    "dpm_xbrl_commit": "6189b5d",
+    "dpm_xbrl_commit": "9637c2b",
     "versions": {
       "Arelle": {
         "version": "2.47.2",
@@ -360,8 +360,8 @@
         "python": "3.12.3"
       },
       "eba-xbridge": {
-        "version": "2.2.1",
-        "python": "3.12.3"
+        "version": "not installed",
+        "python": ""
       }
     }
   }
