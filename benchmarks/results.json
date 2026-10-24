@@ -5,21 +5,21 @@
         "best_s": 0.09,
         "rss_mb": 24,
         "runs_s": [
-          0.09,
           0.1,
-          0.1
+          0.1,
+          0.09
         ],
         "status": 0,
         "output": "",
         "title": "Import the package"
       },
       "eba-xbridge": {
-        "best_s": 0.33,
+        "best_s": 0.32,
         "rss_mb": 71,
         "runs_s": [
+          0.32,
           0.38,
-          0.38,
-          0.33
+          0.39
         ],
         "status": 0,
         "output": "",
@@ -31,7 +31,7 @@
         "runs_s": [
           0.46,
           0.46,
-          0.47
+          0.46
         ],
         "status": 0,
         "output": "",
@@ -345,11 +345,11 @@
     "cores": 8,
     "memory": "15 GB",
     "load_average": [
+      2.4,
       2.7,
-      2.8,
-      3.1
+      3.0
     ],
-    "dpm_xbrl_commit": "9637c2b",
+    "dpm_xbrl_commit": "088ceef",
     "versions": {
       "Arelle": {
         "version": "2.47.2",
@@ -360,8 +360,8 @@
         "python": "3.12.3"
       },
       "eba-xbridge": {
-        "version": "not installed",
-        "python": ""
+        "version": "2.2.1",
+        "python": "3.12.3"
       }
     }
   }
