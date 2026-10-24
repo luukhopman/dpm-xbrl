@@ -390,3 +390,146 @@ def test_official_samples_convert_like_the_eba_packages(
         (f.template, frozenset(f.keys)) for f in eba.facts
     }
     assert _meaning(xml) == _meaning(read_report(target, taxonomy_packages=packages))
+
+
+# Follow-up checks, package roots and nested taxonomy packages ----------------------
+
+
+def _str(content: str | bytes) -> str:
+    assert isinstance(content, str)
+    return content
+
+
+def test_accuracy_requirements_need_the_taxonomy(tmp_path: Path, package: Path) -> None:
+    files = metadata_files()
+    files["reports/parameters.csv"] = _str(files["reports/parameters.csv"]).replace(
+        "decimalsMonetary,-3", "decimalsMonetary,-6"
+    )
+    path = write_zip(tmp_path / "r.zip", files)
+    with_taxonomy = read_report(path, taxonomy_packages=[package])
+    (finding,) = [item for item in with_taxonomy.filing if item.rule == "2.18"]
+    assert finding.code == "accuracyRequirements"
+    assert finding.severity == "error"
+    assert finding.examples == ("reports/c_01.00.csv:2: decimals -6",)
+    assert not any(item.rule == "2.18" for item in read_report(path).filing)
+
+
+def test_taxonomy_rules_only_with_taxonomy(tmp_path: Path, package: Path) -> None:
+    from dpmxbrl.filing import CHECKED_RULES
+
+    files = metadata_files()
+    files["reports/c_01.00.csv"] = "datapoint,factValue\r\ndp84817,1\r\ndp84818,93\r\n"
+    files["reports/parameters.csv"] = _str(files["reports/parameters.csv"]).replace(
+        "2024-12-31", "2023-12-31"
+    )
+    path = write_zip(tmp_path / "r.zip", files)
+    only_taxonomy = CHECKED_RULES["taxonomy"] - CHECKED_RULES["xbrl-csv"]
+    plain = {(item.rule, item.code) for item in read_report(path).filing}
+    full = {
+        (item.rule, item.code)
+        for item in read_report(path, taxonomy_packages=[package]).filing
+    }
+    assert not plain & only_taxonomy
+    assert plain <= CHECKED_RULES["xbrl-csv"]
+    assert (
+        {
+            ("1.5", "inappropriateTaxonomyRef"),
+            ("1.6.3", "invalidFilingIndicatorValue"),
+            ("3.2", "useDecimalFractions"),
+        }
+        <= full
+        <= CHECKED_RULES["xbrl-csv"] | CHECKED_RULES["taxonomy"]
+    )
+    xml = io.BytesIO()
+    write_xbrl_xml(
+        read_report(path, taxonomy_packages=[package]),
+        xml,
+        taxonomy_packages=[package],
+    )
+    plain_xml = {(item.rule, item.code) for item in read_report(xml.getvalue()).filing}
+    assert plain_xml <= CHECKED_RULES["xbrl-xml"]
+    assert not plain_xml & (CHECKED_RULES["taxonomy"] - CHECKED_RULES["xbrl-xml"])
+
+
+def test_header_must_hold_every_column(tmp_path: Path, package: Path) -> None:
+    files = metadata_files()
+    files["reports/c_27.00.csv"] = (
+        "datapoint,factValue,c0020\r\ndp100,ABC,eba_qCO:qx2000\r\n"
+    )
+    report = read_report(
+        write_zip(tmp_path / "r.zip", files), taxonomy_packages=[package]
+    )
+    assert _findings(report)["xBRL-CSV 2", "missingHeaderColumn"] == (
+        "reports/c_27.00.csv:1: c0010",
+    )
+
+
+def test_key_columns_need_values(tmp_path: Path, package: Path) -> None:
+    files = metadata_files()
+    files["reports/c_27.00.csv"] = (
+        "datapoint,factValue,c0010,c0020,unit\r\n"
+        "dp100,ABC,,eba_qCO:qx2000,\r\n"
+        "dp101,5,cp1,eba_qCO:qx2000,\r\n"
+    )
+    path = write_zip(tmp_path / "r.zip", files)
+    # Without metadata every key column but unit needs a value.
+    assert _findings(read_report(path))["xBRL-CSV 4", "missingKeyValue"] == (
+        "reports/c_27.00.csv:2",
+    )
+    # With it, the columns each data point refers to.
+    found = _findings(read_report(path, taxonomy_packages=[package]))
+    assert found["xBRL-CSV 4", "missingKeyValue"] == ("reports/c_27.00.csv:2",)
+
+
+def test_placeholder_reference_date_is_unknown(tmp_path: Path) -> None:
+    package = taxonomy_package(tmp_path / "t.zip", full=True, valid_from="9999-12-31")
+    report = read_report(
+        write_zip(tmp_path / "r.zip", metadata_files()), taxonomy_packages=[package]
+    )
+    assert ("1.5", "inappropriateTaxonomyRef") not in _findings(report)
+
+
+def test_root_folder_is_named_as_the_zip(tmp_path: Path, csv_report: Report) -> None:
+    from dpmxbrl import SkippedFacts, default_package_root
+
+    target = tmp_path / "LEI.CON_FR_COREP040000_COREPOF_2024-12-31_1.zip"
+    skipped: SkippedFacts = write_xbrl_csv(csv_report, target)
+    assert skipped == ()
+    with ZipFile(target) as archive:
+        assert archive.namelist()[0].startswith(f"{target.stem}/")
+    buffer = io.BytesIO()
+    write_xbrl_csv(csv_report, buffer)
+    with ZipFile(buffer) as archive:
+        assert archive.namelist()[0].startswith(default_package_root(csv_report) + "/")
+    assert ("File naming", "invalidRootFolder") not in _findings(read_report(target))
+
+
+def test_nested_taxonomy_packages(tmp_path: Path, csv_report: Report) -> None:
+    from dpmxbrl import Limits
+
+    inner = taxonomy_package(tmp_path / "inner.zip", full=True)
+    outer = tmp_path / "outer.zip"
+    with ZipFile(outer, "w") as archive:
+        archive.write(inner, "EBA_inner.zip")
+        archive.writestr("notes.pdf", b"%PDF")
+    buffer = io.BytesIO()
+    write_xbrl_xml(csv_report, buffer, taxonomy_packages=[outer])
+    assert b"<eba_typ:CC>" in buffer.getvalue()
+
+    with pytest.raises(ReportError, match="maximum total size"):
+        write_xbrl_xml(
+            csv_report,
+            io.BytesIO(),
+            taxonomy_packages=[outer],
+            limits=Limits(max_total_size=10),
+        )
+    empty = tmp_path / "empty.zip"
+    with ZipFile(empty, "w") as archive:
+        archive.writestr("inner.zip", b"not a zip")
+    with pytest.raises(ReportError, match=r"empty\.zip!inner\.zip: not a readable"):
+        write_xbrl_xml(csv_report, io.BytesIO(), taxonomy_packages=[empty])
+    nothing = tmp_path / "nothing.zip"
+    with ZipFile(nothing, "w") as archive:
+        archive.writestr("readme.txt", "x")
+    with pytest.raises(ReportError, match=r"no META-INF/catalog\.xml"):
+        write_xbrl_xml(csv_report, io.BytesIO(), taxonomy_packages=[nothing])
