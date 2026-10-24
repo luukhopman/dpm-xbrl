@@ -5,9 +5,8 @@ description: xBRL-CSV report packages and XBRL 2.1 XML instances, the two serial
 # xBRL-CSV and XBRL-XML
 
 An EBA report can be written in two serializations of the same XBRL
-model. The EBA accepts xBRL-CSV for most frameworks and has moved its
-reporting to it; XBRL-XML is the older form, still used and still found in
-archives.
+model: xBRL-CSV, the format of the EBA's current frameworks, and XBRL-XML,
+the older form, still found in earlier submissions and archives.
 
 ## xBRL-CSV report packages
 
