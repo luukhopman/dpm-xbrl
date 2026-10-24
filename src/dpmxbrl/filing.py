@@ -55,6 +55,7 @@ RULE_TITLES: dict[str, str] = {
     "3.1": "Currency of monetary facts",
     "3.2": "Non-monetary units",
     "3.4": "Unused namespace prefixes",
+    "3.5": "Canonical namespace prefixes",
     "3.6": "Reporting subject",
     "3.9": "Namespace declarations",
     "3.10": "One prefix per namespace",

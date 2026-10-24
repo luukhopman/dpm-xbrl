@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
+from ._checks import check_with_taxonomy
+from ._module import ModuleMetadata
 from ._package import (
     DAMAGED_ENTRY_ERRORS,
     DamagedEntryError,
@@ -332,12 +334,54 @@ class _CsvReportReader:
         with gc_paused() if self._pause_gc else contextlib.nullcontext():
             self._read_tables(metadata)
             facts = tuple(self._facts)
+        report = replace(header, facts=facts)
+        module = None
+        if self._taxonomy is not None:
+            module = check_with_taxonomy(
+                report, self._taxonomy, self._filing, where=label, limits=self._limits
+            )
+        self._check_files(metadata, module)
         return replace(
-            header,
-            facts=facts,
-            warnings=self._warnings.result(),
-            filing=self._filing.result(),
+            report, warnings=self._warnings.result(), filing=self._filing.result()
         )
+
+    def _check_files(self, metadata: _Metadata, module: ModuleMetadata | None) -> None:
+        """Flag package files outside the EBA package layout.
+
+        A package holds ``META-INF/reportPackage.json`` and, in ``reports``,
+        the report JSON, the parameters, the filing indicators and the table
+        files; with the module's metadata, only its tables.
+        """
+        if not self._package.is_archive:
+            return
+        expected = {
+            f"{self._root_prefix}META-INF/reportPackage.json",
+            self._report_json,
+            self._filing_indicator_name(),
+            self._local(metadata.parameter_url or "parameters.csv"),
+        }
+        tables = set(module.table_files()) if module is not None else None
+        prefix = f"{self._reports_dir}/" if self._reports_dir else ""
+        for name in self._package.names:
+            if name in expected:
+                continue
+            base = name[len(prefix) :] if name.startswith(prefix) else None
+            if base and "/" not in base and base.casefold().endswith(".csv"):
+                if tables is None or base in tables:
+                    continue
+                message = (
+                    "The package should hold only the table files of the "
+                    "module's templates."
+                )
+            else:
+                message = (
+                    "The package should hold only META-INF/reportPackage.json and, "
+                    "in reports, report.json, parameters.csv, FilingIndicators.csv "
+                    "and table files."
+                )
+            self._filing.add(
+                "Package", "unexpectedFile", "warning", message, self._display(name)
+            )
 
     def _check_names(self, header: Report) -> None:
         """Check the package file and root folder names (EBA file naming)."""

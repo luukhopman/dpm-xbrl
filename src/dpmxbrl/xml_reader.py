@@ -14,13 +14,15 @@ import os
 import re
 import sys
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import IO, Any
 from xml.etree import ElementTree as ET
 
+from ._checks import check_with_taxonomy
+from ._taxonomy import TaxonomyPackages
 from ._util import EMPTY_MAPPING, FrozenDict, WarningLog, gc_paused
 from ._xmlsafe import check_prolog
 from .filing import FilingLog, check_entry_point, check_file_name, check_subject
@@ -119,6 +121,7 @@ def read_xbrl_xml(
     source: str | os.PathLike[str] | bytes,
     *,
     name: str | None = None,
+    taxonomy_packages: Sequence[str | Path] = (),
     limits: Limits = Limits(),
 ) -> Report:
     """Read one XBRL 2.1 XML instance.
@@ -126,6 +129,8 @@ def read_xbrl_xml(
     Args:
         source: Instance bytes or a path to the instance document.
         name: Label used in messages and fact locations.
+        taxonomy_packages: Local taxonomy package ZIPs; with them the filing
+            rules that need the taxonomy are checked too.
         limits: Resource limits for untrusted input.
 
     Returns:
@@ -140,6 +145,34 @@ def read_xbrl_xml(
         >>> fact.concept, dict(fact.dimensions), dict(fact.typed_dimensions)
         ('eba_met:qNCO', {'eba_dim:qNCO': 'eba_qCO:qx2000'}, {'eba_dim:qINC': 'CP0001'})
     """
+    report = _read(source, name=name, limits=limits)
+    if not taxonomy_packages:
+        return report
+    log = FilingLog()
+    log.extend(report.filing)
+    taxonomy = TaxonomyPackages(taxonomy_packages, limits=limits)
+    try:
+        check_with_taxonomy(
+            report,
+            taxonomy,
+            log,
+            where=name or _label(source),
+            limits=limits,
+        )
+    finally:
+        taxonomy.close()
+    return replace(report, filing=log.result())
+
+
+def _label(source: str | os.PathLike[str] | bytes) -> str:
+    if isinstance(source, bytes):
+        return "instance.xbrl"
+    return Path(source).name
+
+
+def _read(
+    source: str | os.PathLike[str] | bytes, *, name: str | None, limits: Limits
+) -> Report:
     if isinstance(source, bytes):
         label = name or "instance.xbrl"
         if len(source) > limits.max_file_size:

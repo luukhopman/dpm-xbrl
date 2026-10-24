@@ -83,7 +83,8 @@ def read_report(
         name: Label used in messages and fact locations, such as the file
             name of uploaded bytes; the EBA file-naming rule checks it.
         metadata_resolver: xBRL-CSV ``extends`` URL resolver; unused for XML.
-        taxonomy_packages: Local taxonomy package ZIPs for xBRL-CSV metadata.
+        taxonomy_packages: Local taxonomy package ZIPs: they resolve xBRL-CSV
+            metadata and add the filing rules that need the taxonomy.
         limits: Resource limits for untrusted input.
 
     Returns:
@@ -108,4 +109,6 @@ def read_report(
             taxonomy_packages=taxonomy_packages,
             limits=limits,
         )
-    return read_xbrl_xml(source, name=name, limits=limits)
+    return read_xbrl_xml(
+        source, name=name, taxonomy_packages=taxonomy_packages, limits=limits
+    )
