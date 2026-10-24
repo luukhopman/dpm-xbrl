@@ -859,3 +859,16 @@ def test_one_taxonomy_package_may_be_a_str_or_path(
         write_xbrl_xml(report, buffer, taxonomy_packages=single)
         xml = read_report(buffer.getvalue(), taxonomy_packages=single)
         assert write_xbrl_csv(xml, tmp_path / "out.zip", taxonomy_packages=single) == ()
+
+
+def test_unreadable_module_is_a_warning(
+    tmp_path: Path, csv_report: Report, package: Path
+) -> None:
+    xml = _as_xml_bytes(replace(csv_report, entry_point=ENTRY_POINT_XSD), tmp_path)
+    broken = _taxonomy_file(tmp_path, _MODULE_PATH, "{not json")
+    report = read_report(xml, name="r.xbrl", taxonomy_packages=[broken])
+    (warning,) = report.warnings
+    assert warning.startswith(
+        "r.xbrl: the module's xBRL-CSV metadata could not be read"
+    )
+    assert ("1.6.3", "invalidFilingIndicatorValue") not in _codes(report)

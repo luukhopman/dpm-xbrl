@@ -353,7 +353,12 @@ class _CsvReportReader:
         module = None
         if self._taxonomy is not None:
             module = check_with_taxonomy(
-                report, self._taxonomy, self._filing, where=label, limits=self._limits
+                report,
+                self._taxonomy,
+                self._filing,
+                where=label,
+                limits=self._limits,
+                warn=self._warnings.add,
             )
         self._check_files(metadata, module)
         return replace(

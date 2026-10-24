@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import posixpath
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 
 from ._module import ModuleMetadata, load_module, module_json_url
 from ._taxonomy import TaxonomyPackages
@@ -33,6 +33,7 @@ def check_with_taxonomy(
     *,
     where: str,
     limits: Limits,
+    warn: Callable[[str], None],
 ) -> ModuleMetadata | None:
     """Check the rules that need the module: 1.5, 1.6, 1.6.3, 3.2 and 3.5.
 
@@ -42,6 +43,7 @@ def check_with_taxonomy(
         log: Where findings go.
         where: Location for report-level findings.
         limits: Resource limits for reading the packages.
+        warn: Records a warning, such as a module that cannot be read.
 
     Returns:
         ModuleMetadata | None: The module's metadata, or ``None`` when the
@@ -53,8 +55,12 @@ def check_with_taxonomy(
     if entry_point and _known_entry_point(entry_point, taxonomy.entry_points):
         try:
             module = load_module(taxonomy, entry_point, limits=limits)
-        except ReportError:
-            module = None
+        except ReportError as error:
+            warn(
+                f"{where}: the module's xBRL-CSV metadata could not be read "
+                f"({error}); its reference dates, templates and filing "
+                "indicator codes were not checked"
+            )
     elif entry_point and taxonomy.entry_points:
         log.add(
             "1.5",

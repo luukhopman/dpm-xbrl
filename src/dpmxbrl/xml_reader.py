@@ -149,6 +149,7 @@ def read_xbrl_xml(
     report = _read(source, name=name, limits=limits)
     if not taxonomy_packages:
         return report
+    warnings: list[str] = []
     log = FilingLog()
     log.extend(report.filing)
     taxonomy = TaxonomyPackages(taxonomy_packages, limits=limits)
@@ -159,10 +160,15 @@ def read_xbrl_xml(
             log,
             where=name or _label(source),
             limits=limits,
+            warn=warnings.append,
         )
     finally:
         taxonomy.close()
-    return replace(report, filing=log.result())
+    return replace(
+        report,
+        warnings=(*report.warnings, *warnings),
+        filing=log.result(),
+    )
 
 
 def _label(source: str | os.PathLike[str] | bytes) -> str:
