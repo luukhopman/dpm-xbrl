@@ -1,92 +1,49 @@
 ---
-description: How dpm-xbrl compares with eba-xbridge, Arelle, py-xbrl and brel-xbrl on EBA reports - a capability matrix and reproducible timings.
+description: dpm-xbrl compared with eba-xbridge, Arelle, py-xbrl and brel-xbrl on EBA reports - capabilities, licence and reproducible timings.
 ---
 
 # Benchmarks
 
-This page compares dpm-xbrl with the Python packages people consider for
-the same job: [eba-xbridge](https://pypi.org/project/eba-xbridge/),
-[Arelle](https://pypi.org/project/arelle-release/),
-[py-xbrl](https://pypi.org/project/py-xbrl/) and
-[brel-xbrl](https://pypi.org/project/brel-xbrl/). They differ in scope, so
-the capability matrix comes first; the timings only compare tasks that
-several tools do.
-
-Every number on this page comes from the scripts in
-[`benchmarks/`](https://github.com/luukhopman/dpm-xbrl/tree/main/benchmarks),
-which anyone can re-run; the README there explains the setup.
+dpm-xbrl compared with the Python packages used for the same job:
+eba-xbridge, Arelle, py-xbrl and brel-xbrl. Their scope differs, so the
+capabilities come first; the timings cover only tasks several tools do.
 
 ## Capabilities
 
-Rows above the line are dpm-xbrl's job; rows below help you choose a tool
-for work dpm-xbrl does not do.
-
-<!-- Keep in step with the code: the conversion, filing-check and
-     structural-problem rows change when dpm-xbrl gains features. -->
-
 | | dpm-xbrl | eba-xbridge | Arelle | py-xbrl | brel-xbrl |
 | --- | --- | --- | --- | --- | --- |
-| Read EBA XBRL-XML instances | yes | yes | yes, with the EBA taxonomy | no: cannot find the DPM 2.0 taxonomy | no: downloads the taxonomy, runs out of memory |
-| Read EBA xBRL-CSV report packages | yes | no (validates them) | yes, with the EBA taxonomy | no | no |
-| Read without the taxonomy | yes | yes, with bundled module metadata | no | no | no |
-| Millions of facts in seconds | yes, `frames` extra | no | no | no | no |
-| Write xBRL-CSV from XBRL-XML | yes, with the EBA taxonomy packages | yes | not evaluated | no | no |
-| Write XBRL-XML from xBRL-CSV | yes, with the EBA taxonomy packages | no | not evaluated | no | no |
-| EBA filing rules checked from the file | v5.8, in the same pass as reading; with the taxonomy packages also module dates, published entry points, templates, decimals per data type, rate notation and canonical prefixes; [list](../reference/filing-rules.md) | yes, including taxonomy-aware checks (module dates, known entry points, canonical prefixes, rate notation) | EBA plugin for an older filing-rules version | no | no |
-| Findings with EBA rule numbers and tags | yes | yes, with its own codes | yes, error codes | no | no |
-| Reports every structural problem of a broken file | xBRL-CSV tables: up to 100 problems in `ReportError.problems`; other files stop at the first | yes, as coded findings | not evaluated | not evaluated | not evaluated |
-| CLI with JSON output and a CI exit status | yes (`--json`, `--fail-on`) | JSON output (`xbridge validate`); exit status not evaluated | full CLI; not evaluated for CI | no | no |
-| Resource limits and DOCTYPE rejection for untrusted input | yes | not evaluated | not evaluated | not evaluated | not evaluated |
-| Works offline | yes | yes | yes, with local packages | no | no |
-| Runtime dependencies | none (optional polars, isal) | lxml, numpy, pandas | 15, including lxml, numpy, openpyxl, pillow | requests, urllib3 | 17 pinned, including pandas, pyspark, lxml |
-| **Out of dpm-xbrl's scope** | | | | | |
-| Taxonomy-driven XBRL validation (schemas, dimensions, calculations) | no | no | yes | not evaluated | not evaluated |
-| EBA validation rules on report values | no; use [dpm-xl] | no | yes, as XBRL formula from the taxonomy (minutes and gigabytes per report) | no | no |
-| OneGate envelope unwrapping | no | yes | no | no | no |
-| Other XBRL filings, such as SEC and ESEF | no | no | yes | yes, its focus | yes, its focus (SEC) |
+| Licence | MIT | Apache-2.0 | Apache-2.0 | GPL-3.0 | Apache-2.0 |
+| Runtime dependencies | none | lxml, numpy, pandas | 15 | 2 | 17 |
+| Reads EBA XBRL-XML | yes | yes | with the taxonomy | no | no |
+| Reads EBA xBRL-CSV | yes | no | with the taxonomy | no | no |
+| Works without the taxonomy | yes | yes | no | no | no |
+| Millions of facts in seconds | yes (`frames`) | no | no | no | no |
+| Converts XML → xBRL-CSV | yes, EBA layout | yes, EBA layout | generic OIM (plugin) | no | no |
+| Converts xBRL-CSV → XML | yes | no | generic OIM (plugin) | no | no |
+| EBA filing rules, with rule numbers | yes, while reading | yes | older plugin | no | no |
+| CLI with JSON and CI exit status | yes | JSON | yes | no | no |
+| *Outside dpm-xbrl's scope:* | | | | | |
+| Taxonomy validation (schemas, formulas) | no | no | yes | no | no |
+| EBA validation rules on values | via [dpm-xl](https://luukhopman.github.io/dpm-xl/) | no | yes, slowly | no | no |
+| Other filings (SEC, ESEF) | no | no | yes | yes | yes |
 
-"Not evaluated" means the benchmark did not test it; it is not a claim
-that the tool lacks it.
+py-xbrl cannot find the DPM 2.0 taxonomy, and brel-xbrl downloads it and
+runs out of memory, so neither reads EBA reports today.
 
 ## Timings
 
 --8<-- "benchmarks/results.md"
 
-## What the numbers mean
-
-- **XML.** dpm-xbrl and eba-xbridge read the same facts from every EBA XML
-  sample (the fact counts and the (concept, value, decimals) multisets
-  agree on COREP and FINREP); Arelle counts the filing indicators as facts
-  too. Arelle needs the taxonomy to load a report at all, which is what
-  makes it slow and large here; in return it validates the report against
-  the taxonomy.
-- **xBRL-CSV.** Only dpm-xbrl and Arelle read xBRL-CSV report packages.
-  dpm-xbrl reads the EBA convention without the taxonomy; resolving the
-  taxonomy's metadata, for concepts and dimensions, costs extra time.
-- **Millions of facts.** `read_xbrl_csv_frames` reads an EBA package with
-  one open table of millions of rows as polars frames. `read_report`
-  builds one Python object per fact, about 5 µs and 0.7 KB each, and
-  pauses the cyclic garbage collector while it does.
-- **Filing rules.** dpm-xbrl and eba-xbridge agree on the rules both
-  check. With the taxonomy packages, dpm-xbrl also checks the rules that
-  need the module's metadata, such as the reference date against the
-  module's dates, and finds no rate-notation or canonical-prefix problems
-  in the official EBA samples; dpm-xbrl checks LEI check digits, which
-  eba-xbridge does not.
-- **Conversion.** dpm-xbrl places each XML fact in every table row whose
-  data point has its concept and dimensions, using the module's metadata
-  in the taxonomy packages. On all 53 official EBA sample pairs its tables,
-  datapoints and key columns are those of the EBA's own xBRL-CSV sample
-  (their values differ: the EBA generated each sample separately), and the
-  package read back with the taxonomy gives the instance's facts again.
+- dpm-xbrl and eba-xbridge read the same facts from every EBA XML sample;
+  Arelle also counts filing indicators as facts.
+- Arelle needs the taxonomy to load any report, which makes it slow and
+  large here; in return it validates against the taxonomy.
+- Converted packages match the EBA's own xBRL-CSV samples table for table
+  on all 53 official sample pairs.
 
 ## Reproduce
 
-```text
-git clone https://github.com/luukhopman/dpm-xbrl
-cd dpm-xbrl
-# set up benchmarks/.venvs as in benchmarks/README.md, then:
-uv run python benchmarks/run.py --samples SAMPLES --taxonomy TAXONOMY --coverage
-python benchmarks/render.py
-uv run python scripts/build_docs.py
-```
+Set up `benchmarks/.venvs` as in
+[`benchmarks/README.md`](https://github.com/luukhopman/dpm-xbrl/blob/main/benchmarks/README.md),
+then run `uv run python benchmarks/run.py --samples SAMPLES --taxonomy
+TAXONOMY` and `python benchmarks/render.py`.
