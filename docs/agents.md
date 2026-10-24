@@ -52,7 +52,7 @@ for fact in report.facts_for_template("C_28.00"):
 | Millions of facts | `dpmxbrl.frames.read_xbrl_csv_frames(source, ...) -> ReportFrames` (`frames` extra) |
 | Write | `write_xbrl_csv(report, target, root=None, taxonomy_packages=(), strict=True) -> SkippedFacts`, `write_xbrl_xml(report, target, typed_domains=None, taxonomy_packages=())` |
 | Convert | Read, then write with `taxonomy_packages`, or `dpm-xbrl convert IN OUT --taxonomy-package ZIP` |
-| Avoid duplicate findings | `dpmxbrl.filing.CHECKED_RULES[mode]`: the `(rule, code)` pairs a reader checks |
+| Avoid duplicate findings | `dpmxbrl.filing.checked_rules(format, taxonomy=..., columnar=...)`: the `(rule, code)` pairs a reader checks |
 | Gate on filing rules | `[f for f in report.filing if f.severity == "error"]`, or `dpm-xbrl inspect PATH --fail-on error` (exit 3) |
 | Add findings | `dpmxbrl.filing.FilingLog`: `.extend(report.filing)`, `.add(*rule_tuple, location)`, `.result()` |
 | Change a report | `dataclasses.replace(report, filing=..., entry_point=...)` |

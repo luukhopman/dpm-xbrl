@@ -46,7 +46,7 @@ same classes; see [add your own filing findings](../guides/add-filing-findings.m
 - `baseCurrency` when monetary facts use it;
 - without taxonomy packages, the rules of the previous section.
 
-[`CHECKED_RULES`][dpmxbrl.filing.CHECKED_RULES] lists what each mode
+[`checked_rules`][dpmxbrl.filing.checked_rules] gives what each mode
 checks, so that your own findings need not repeat them.
 
 [Columnar reading](../guides/large-reports.md) checks special fact values

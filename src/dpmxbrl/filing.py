@@ -18,7 +18,7 @@ import re
 from collections.abc import Iterable
 from datetime import date
 
-from .model import FilingFinding, Report, Severity
+from .model import FilingFinding, Report, ReportFormat, Severity
 
 RULE_TITLES: dict[str, str] = {
     "1.4": "Character encoding",
@@ -167,7 +167,7 @@ _CSV_PACKAGE = (
     ("2.19", "emptyUsed"),
     ("xBRL-CSV 5", "specialValueUsed"),
 )
-CHECKED_RULES: dict[str, frozenset[tuple[str, str]]] = {
+_CHECKED: dict[str, frozenset[tuple[str, str]]] = {
     "xbrl-xml": frozenset(
         {
             *_SUBJECT,
@@ -221,29 +221,77 @@ CHECKED_RULES: dict[str, frozenset[tuple[str, str]]] = {
         }
     ),
     "xbrl-csv-frames": frozenset(_CSV_PACKAGE),
-    "taxonomy": frozenset(
-        {
-            ("1.5", "inappropriateSchemaRef"),
-            ("1.5", "inappropriateTaxonomyRef"),
-            ("1.6", "missingFilingIndicators"),
-            ("1.6.3", "invalidFilingIndicatorValue"),
-            ("2.18", "accuracyRequirements"),
-            ("3.2", "useDecimalFractions"),
-            ("3.5", "notRecommendedNamespacePrefix"),
-        }
-    ),
 }
-"""The ``(rule, code)`` findings each reader can record, so callers that
-check rules themselves can avoid reporting one twice.
+_TAXONOMY_PACKAGE = frozenset(
+    {
+        ("1.6", "missingFilingIndicators"),
+        ("1.6.3", "invalidFilingIndicatorValue"),
+    }
+)
+_TAXONOMY_FACTS = frozenset(
+    {
+        ("2.18", "accuracyRequirements"),
+        ("3.2", "useDecimalFractions"),
+    }
+)
 
-``xbrl-xml`` is :func:`~dpmxbrl.read_xbrl_xml`, ``xbrl-csv``
-:func:`~dpmxbrl.read_xbrl_csv` (``xBRL-CSV 2`` needs resolved metadata) and
-``xbrl-csv-frames`` :func:`~dpmxbrl.frames.read_xbrl_csv_frames`, without
-taxonomy packages. ``taxonomy`` lists what any of them adds only when given
-``taxonomy_packages``: the module's entry point and reference dates (1.5),
-filing indicator codes (1.6, 1.6.3), and, from facts, accuracy (2.18) and
-percentages (3.2); 3.5 is checked for XML only, and the frames reader, which
-builds no facts, adds neither 2.18 nor 3.2."""
+
+def checked_rules(
+    format: ReportFormat,
+    *,
+    taxonomy: bool = False,
+    columnar: bool = False,
+) -> frozenset[tuple[str, str]]:
+    """Return the findings a reader can record, as ``(rule, code)`` pairs.
+
+    Callers that check rules themselves use it to avoid reporting a rule
+    twice. The set is exact for each mode: the rules the taxonomy adds are
+    there only with ``taxonomy``, canonical prefixes (3.5) only for XML, and
+    the columnar reader, which builds no facts, records neither 2.18 nor
+    3.2 (b).
+
+    Args:
+        format: ``xbrl-xml`` for :func:`~dpmxbrl.read_xbrl_xml`, ``xbrl-csv``
+            for :func:`~dpmxbrl.read_xbrl_csv`.
+        taxonomy: Whether the reader is given taxonomy packages.
+        columnar: For ``xbrl-csv``, whether the report is read with
+            :func:`~dpmxbrl.frames.read_xbrl_csv_frames`.
+
+    Returns:
+        frozenset[tuple[str, str]]: The ``(rule, code)`` pairs.
+
+    Raises:
+        ValueError: If ``format`` is not a report format, or ``columnar`` is
+            asked for XML.
+
+    Examples:
+        >>> from dpmxbrl.filing import checked_rules
+        >>> added = checked_rules("xbrl-csv", taxonomy=True) - checked_rules("xbrl-csv")
+        >>> for rule, code in sorted(added):
+        ...     print(rule, code)
+        1.6.3 invalidFilingIndicatorValue
+        2.18 accuracyRequirements
+        3.2 useDecimalFractions
+    """
+    if format not in ("xbrl-xml", "xbrl-csv"):
+        raise ValueError(f"unknown report format {format!r}")
+    if columnar and format != "xbrl-csv":
+        raise ValueError("only xBRL-CSV is read columnar")
+    key = "xbrl-csv-frames" if columnar else format
+    rules = _CHECKED[key]
+    if taxonomy:
+        rules = rules | _TAXONOMY_PACKAGE
+        if format == "xbrl-xml":
+            rules = rules | {
+                ("1.5", "inappropriateSchemaRef"),
+                ("3.5", "notRecommendedNamespacePrefix"),
+            }
+        else:
+            rules = rules | {("1.5", "inappropriateTaxonomyRef")}
+        if not columnar:
+            rules = rules | _TAXONOMY_FACTS
+    return rules
+
 
 _EXAMPLES = 5
 _LEI_SCHEME = "http://standards.iso.org/iso/17442"
@@ -667,7 +715,6 @@ def check_entry_point(
 
 
 __all__ = [
-    "CHECKED_RULES",
     "DECIMALS_SUFFIX",
     "EMPTY_VALUE",
     "KEY_SPACES",
@@ -684,5 +731,6 @@ __all__ = [
     "check_entry_point",
     "check_file_name",
     "check_subject",
+    "checked_rules",
     "sort_findings",
 ]

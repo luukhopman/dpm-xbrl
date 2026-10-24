@@ -9,7 +9,7 @@ and, given taxonomy packages, those that need the module's templates and
 data types. Other rules, and checks from your own sources, are left to
 you. This guide shows how to record your findings in the same form, so
 that one list holds them all; check
-[`CHECKED_RULES`][dpmxbrl.filing.CHECKED_RULES] so as not to repeat one
+[`checked_rules`][dpmxbrl.filing.checked_rules] so as not to repeat one
 the reader made.
 
 ## Record findings with `FilingLog`

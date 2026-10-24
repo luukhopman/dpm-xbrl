@@ -192,7 +192,7 @@ for taxonomy_packages in ((), ["taxonomy.zip"]):
 ```
 
 The [rules each mode checks](../reference/filing-rules.md#what-each-mode-checks)
-lists them, and [`CHECKED_RULES`][dpmxbrl.filing.CHECKED_RULES] gives them
+lists them, and [`checked_rules`][dpmxbrl.filing.checked_rules] gives them
 as `(rule, code)` pairs. Facts outside the reported templates (1.7.1) and
 spaces around string values (3.11) are left to you;
 [add your own filing findings](add-filing-findings.md) shows how to record

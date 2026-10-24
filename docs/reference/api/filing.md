@@ -17,7 +17,7 @@ See [check EBA filing rules](../../guides/check-filing-rules.md),
       show_root_heading: false
       members:
         - RULE_TITLES
-        - CHECKED_RULES
+        - checked_rules
         - Rule
         - FilingLog
         - sort_findings

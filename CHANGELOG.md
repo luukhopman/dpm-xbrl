@@ -44,8 +44,9 @@ All notable changes to this project are documented here. The project follows
   and a value in each key column of a reported fact (rule 4).
 - Taxonomy packages may be one ZIP holding the packages, as the EBA
   publishes them.
-- `dpmxbrl.filing.CHECKED_RULES` lists the findings each reader can record,
-  without and with taxonomy packages.
+- `dpmxbrl.filing.checked_rules(format, *, taxonomy, columnar)` gives the
+  findings a reader can record in each mode, so callers can avoid
+  reporting a rule twice.
 - `SkippedFacts`, the type `write_xbrl_csv` returns.
 - `Limits.max_taxonomy_entries` bounds the entries of a taxonomy package
   ZIP, and files read from taxonomy packages count towards

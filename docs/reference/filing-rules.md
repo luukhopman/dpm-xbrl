@@ -80,20 +80,22 @@ taxonomy, and only then:
 | `read_xbrl_csv_frames` | As `read_xbrl_csv`, but of the values only special fact values (2.19, xBRL-CSV 5) |
 | Any, with `taxonomy_packages` | Adds 1.5 (published entry point, reference dates), 1.6 (each template), 1.6.3, 2.18, 3.2 (b), and 3.5 for XML; the frames reader, which builds no facts, adds neither 2.18 nor 3.2 |
 
-[`CHECKED_RULES`][dpmxbrl.filing.CHECKED_RULES] lists the same as
-`(rule, code)` pairs, so that callers who check rules themselves can skip
-the ones a mode already reports:
+[`checked_rules`][dpmxbrl.filing.checked_rules] gives the same, exactly,
+as `(rule, code)` pairs for one mode, so that callers who check rules
+themselves can skip the ones the reader already reports:
 
 ```python
-from dpmxbrl.filing import CHECKED_RULES
+from dpmxbrl.filing import checked_rules
 
-print(sorted(CHECKED_RULES))
-print(sorted(CHECKED_RULES["taxonomy"] - CHECKED_RULES["xbrl-csv"]))
+xml = checked_rules("xbrl-xml", taxonomy=True) - checked_rules("xbrl-xml")
+frames = checked_rules("xbrl-csv", taxonomy=True, columnar=True)
+print(sorted(xml))
+print(("2.18", "accuracyRequirements") in frames)
 ```
 
 ```text
-['taxonomy', 'xbrl-csv', 'xbrl-csv-frames', 'xbrl-xml']
-[('1.5', 'inappropriateSchemaRef'), ('1.6.3', 'invalidFilingIndicatorValue'), ('2.18', 'accuracyRequirements'), ('3.2', 'useDecimalFractions'), ('3.5', 'notRecommendedNamespacePrefix')]
+[('1.6.3', 'invalidFilingIndicatorValue'), ('2.18', 'accuracyRequirements'), ('3.2', 'useDecimalFractions'), ('3.5', 'notRecommendedNamespacePrefix')]
+False
 ```
 
 ## Left to callers

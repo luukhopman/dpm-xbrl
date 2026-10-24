@@ -415,8 +415,12 @@ def test_accuracy_requirements_need_the_taxonomy(tmp_path: Path, package: Path) 
     assert not any(item.rule == "2.18" for item in read_report(path).filing)
 
 
+def _codes(report: Report) -> set[tuple[str, str]]:
+    return {(item.rule, item.code) for item in report.filing}
+
+
 def test_taxonomy_rules_only_with_taxonomy(tmp_path: Path, package: Path) -> None:
-    from dpmxbrl.filing import CHECKED_RULES
+    from dpmxbrl.filing import checked_rules
 
     files = metadata_files()
     files["reports/c_01.00.csv"] = "datapoint,factValue\r\ndp84817,1\r\ndp84818,93\r\n"
@@ -424,14 +428,11 @@ def test_taxonomy_rules_only_with_taxonomy(tmp_path: Path, package: Path) -> Non
         "2024-12-31", "2023-12-31"
     )
     path = write_zip(tmp_path / "r.zip", files)
-    only_taxonomy = CHECKED_RULES["taxonomy"] - CHECKED_RULES["xbrl-csv"]
-    plain = {(item.rule, item.code) for item in read_report(path).filing}
-    full = {
-        (item.rule, item.code)
-        for item in read_report(path, taxonomy_packages=[package]).filing
-    }
+    plain = _codes(read_report(path))
+    full = _codes(read_report(path, taxonomy_packages=[package]))
+    only_taxonomy = checked_rules("xbrl-csv", taxonomy=True) - checked_rules("xbrl-csv")
     assert not plain & only_taxonomy
-    assert plain <= CHECKED_RULES["xbrl-csv"]
+    assert plain <= checked_rules("xbrl-csv")
     assert (
         {
             ("1.5", "inappropriateTaxonomyRef"),
@@ -439,7 +440,7 @@ def test_taxonomy_rules_only_with_taxonomy(tmp_path: Path, package: Path) -> Non
             ("3.2", "useDecimalFractions"),
         }
         <= full
-        <= CHECKED_RULES["xbrl-csv"] | CHECKED_RULES["taxonomy"]
+        <= checked_rules("xbrl-csv", taxonomy=True)
     )
     xml = io.BytesIO()
     write_xbrl_xml(
@@ -447,9 +448,56 @@ def test_taxonomy_rules_only_with_taxonomy(tmp_path: Path, package: Path) -> Non
         xml,
         taxonomy_packages=[package],
     )
-    plain_xml = {(item.rule, item.code) for item in read_report(xml.getvalue()).filing}
-    assert plain_xml <= CHECKED_RULES["xbrl-xml"]
-    assert not plain_xml & (CHECKED_RULES["taxonomy"] - CHECKED_RULES["xbrl-xml"])
+    plain_xml = _codes(read_report(xml.getvalue()))
+    assert plain_xml <= checked_rules("xbrl-xml")
+    renamed = xml.getvalue().replace(b"eba_met", b"m")
+    full_xml = _codes(read_report(renamed, taxonomy_packages=[package]))
+    assert ("3.5", "notRecommendedNamespacePrefix") in full_xml
+    assert full_xml <= checked_rules("xbrl-xml", taxonomy=True)
+
+
+def test_checked_rules_per_mode() -> None:
+    from dpmxbrl.filing import checked_rules
+
+    csv_taxonomy = checked_rules("xbrl-csv", taxonomy=True)
+    frames_taxonomy = checked_rules("xbrl-csv", taxonomy=True, columnar=True)
+    xml_taxonomy = checked_rules("xbrl-xml", taxonomy=True)
+    prefixes = ("3.5", "notRecommendedNamespacePrefix")
+    assert prefixes in xml_taxonomy
+    assert prefixes not in csv_taxonomy | frames_taxonomy
+    assert prefixes not in checked_rules("xbrl-xml")
+    for rule in (("2.18", "accuracyRequirements"), ("3.2", "useDecimalFractions")):
+        assert rule in csv_taxonomy
+        assert rule in xml_taxonomy
+        assert rule not in frames_taxonomy
+    assert ("xBRL-CSV 4", "missingKeyValue") not in checked_rules(
+        "xbrl-csv", columnar=True
+    )
+    assert ("1.6.3", "invalidFilingIndicatorValue") in frames_taxonomy
+    with pytest.raises(ValueError, match="columnar"):
+        checked_rules("xbrl-xml", columnar=True)
+    with pytest.raises(ValueError, match="unknown report format"):
+        checked_rules("xbrl")  # ty: ignore[invalid-argument-type]
+
+
+def test_frames_findings_are_within_checked_rules(
+    tmp_path: Path, package: Path
+) -> None:
+    pytest.importorskip("polars")
+    from dpmxbrl.filing import checked_rules
+    from dpmxbrl.frames import read_xbrl_csv_frames
+
+    files = metadata_files()
+    files.pop("reports/c_27.00.csv")
+    files.pop("reports/c_01.00.csv")
+    # A table the module does not describe, read in the EBA convention.
+    files["reports/c_99.00.csv"] = "datapoint,factValue\r\ndp84817,#nil\r\n"
+    files["reports/extra.txt"] = "x"
+    path = write_zip(tmp_path / "r.zip", files)
+    plain = read_xbrl_csv_frames(path).report
+    assert _codes(plain) <= checked_rules("xbrl-csv", columnar=True)
+    full = read_xbrl_csv_frames(path, taxonomy_packages=[package]).report
+    assert _codes(full) <= checked_rules("xbrl-csv", taxonomy=True, columnar=True)
 
 
 def test_header_must_hold_every_column(tmp_path: Path, package: Path) -> None:
