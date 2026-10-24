@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import posixpath
 import re
 from collections.abc import Sequence
@@ -57,6 +58,7 @@ class TaxonomyPackages:
         """
         self._limits = limits
         self._archives: list[ZipFile] = []
+        self._labels: list[str] = []
         self._rewrites: list[tuple[str, int, str]] = []
         self._entry_points: set[str] = set()
         self._schema_files: dict[str, list[tuple[int, str]]] | None = None
@@ -78,15 +80,53 @@ class TaxonomyPackages:
                 f"{label}: not a readable taxonomy package ZIP ({error})"
             ) from error
         self._archives.append(archive)
-        index = len(self._archives) - 1
-        catalogs = [
+        self._labels.append(label)
+        if self._catalogs(archive):
+            self._add_catalogs(archive, label)
+            return
+        # The EBA publishes its packages as ZIPs inside one ZIP.
+        inner = [
+            info
+            for info in archive.infolist()
+            if "/" not in info.filename.rstrip("/")
+            and info.filename.casefold().endswith(".zip")
+        ]
+        if not inner:
+            raise ReportError(f"{label}: taxonomy package has no META-INF/catalog.xml")
+        total = sum(info.file_size for info in inner)
+        if total > self._limits.max_total_size:
+            raise ReportError(
+                f"{label}: inner taxonomy packages exceed the maximum total size "
+                f"of {self._limits.max_total_size} bytes"
+            )
+        for info in inner:
+            inner_label = f"{label}!{info.filename}"
+            data = self._read(archive, info.filename, label)
+            try:
+                nested = ZipFile(io.BytesIO(data))
+            except BadZipFile as error:
+                raise ReportError(
+                    f"{inner_label}: not a readable taxonomy package ZIP ({error})"
+                ) from error
+            self._archives.append(nested)
+            self._labels.append(inner_label)
+            if not self._catalogs(nested):
+                raise ReportError(
+                    f"{inner_label}: taxonomy package has no META-INF/catalog.xml"
+                )
+            self._add_catalogs(nested, inner_label)
+
+    @staticmethod
+    def _catalogs(archive: ZipFile) -> list[str]:
+        return [
             name
             for name in archive.namelist()
             if name.count("/") <= 2 and name.casefold().endswith("meta-inf/catalog.xml")
         ]
-        if not catalogs:
-            raise ReportError(f"{label}: taxonomy package has no META-INF/catalog.xml")
-        for catalog in catalogs:
+
+    def _add_catalogs(self, archive: ZipFile, label: str) -> None:
+        index = len(self._archives) - 1
+        for catalog in self._catalogs(archive):
             base = posixpath.dirname(catalog)
             data = self._read(archive, catalog, label)
             for start, prefix in parse_catalog_rewrites(data, f"{label}!{catalog}"):
@@ -129,7 +169,7 @@ class TaxonomyPackages:
                 continue
             archive = self._archives[index]
             try:
-                return self._read(archive, member, archive.filename or "")
+                return self._read(archive, member, self._labels[index])
             except KeyError:
                 continue
         return None
@@ -175,11 +215,11 @@ class TaxonomyPackages:
             index, name = location
             archive = self._archives[index]
             try:
-                data = self._read(archive, name, archive.filename or "")
+                data = self._read(archive, name, self._labels[index])
             except KeyError:
                 self._schemas[location] = None
                 return None
-            parsed = parse_schema(data, f"{archive.filename}!{name}")
+            parsed = parse_schema(data, f"{self._labels[index]}!{name}")
             schema = Schema(
                 namespace=parsed.namespace,
                 prefix=parsed.prefix,
