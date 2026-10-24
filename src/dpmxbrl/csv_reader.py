@@ -210,6 +210,10 @@ def _parse_decimals(value: str) -> int | None:
 
 
 class _CsvReportReader:
+    # Whether building the tables creates enough objects to pause the
+    # garbage collector for (see gc_paused).
+    _pause_gc = True
+
     def __init__(
         self,
         package: Package,
@@ -313,7 +317,7 @@ class _CsvReportReader:
         check_subject(header, self._filing)
         self._check_names(header)
         self._before_tables(header)
-        with gc_paused():
+        with gc_paused() if self._pause_gc else contextlib.nullcontext():
             self._read_tables(metadata)
             facts = tuple(self._facts)
         return replace(

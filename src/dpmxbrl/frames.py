@@ -146,6 +146,9 @@ def read_xbrl_csv_frames(
 
 
 class _FrameReader(_CsvReportReader):
+    # Frames hold few Python objects, and callbacks run while tables are read.
+    _pause_gc = False
+
     def __init__(
         self,
         *args: Any,
