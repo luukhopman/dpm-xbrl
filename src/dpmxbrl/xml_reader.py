@@ -133,6 +133,12 @@ def read_xbrl_xml(
 
     Raises:
         ReportError: If the instance is malformed, unsafe or over a limit.
+
+    Examples:
+        >>> from dpmxbrl import read_xbrl_xml
+        >>> fact = read_xbrl_xml("instance.xbrl").facts[2]
+        >>> fact.concept, dict(fact.dimensions), dict(fact.typed_dimensions)
+        ('eba_met:qNCO', {'eba_dim:qNCO': 'eba_qCO:qx2000'}, {'eba_dim:qINC': 'CP0001'})
     """
     if isinstance(source, bytes):
         label = name or "instance.xbrl"

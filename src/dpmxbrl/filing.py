@@ -153,7 +153,30 @@ _FILE_NAME = re.compile(
 
 
 class FilingLog:
-    """Collect findings, counting repeats of the same finding."""
+    """Collect findings, counting repeats of the same finding.
+
+    A finding is identified by its rule, code and message. The log keeps a
+    count and up to five distinct locations for each, and returns them in
+    rule order. It is not synchronized; use one log per thread.
+
+    Examples:
+        >>> import dataclasses
+        >>> from dpmxbrl import read_report
+        >>> from dpmxbrl.filing import FilingLog
+        >>> report = read_report("report.zip")
+        >>> log = FilingLog()
+        >>> log.extend(report.filing)
+        >>> rule = (
+        ...     "1.6",
+        ...     "missingFilingIndicator",
+        ...     "error",
+        ...     "Each template needs one.",
+        ... )
+        >>> log.add(*rule, "C_30.00")
+        >>> report = dataclasses.replace(report, filing=log.result())
+        >>> [(finding.rule, finding.examples) for finding in report.filing]
+        [('1.6', ('C_30.00',)), ('File naming', ('report.zip',))]
+    """
 
     def __init__(self) -> None:
         """Create an empty log."""
@@ -173,7 +196,16 @@ class FilingLog:
     ) -> None:
         """Record ``count`` occurrences of a finding, keeping a few locations.
 
-        A location already kept for the finding is not kept again.
+        A location already kept for the finding is not kept again. Callers
+        usually unpack a :data:`Rule` tuple: ``log.add(*NIL_VALUE, where)``.
+
+        Args:
+            rule: Rule number, a key of :data:`RULE_TITLES`.
+            code: The rule's tag in the EBA document.
+            severity: ``error`` for a MUST rule, ``warning`` for SHOULD.
+            message: What is wrong, as a sentence.
+            location: Where, such as ``reports/c_01.00.csv:3``; optional.
+            count: Occurrences to add; zero or less records nothing.
         """
         if count <= 0:
             return
@@ -186,7 +218,11 @@ class FilingLog:
             _keep(examples, (location,))
 
     def extend(self, findings: Iterable[FilingFinding]) -> None:
-        """Record findings made elsewhere, keeping each location once."""
+        """Record findings made elsewhere, keeping each location once.
+
+        Args:
+            findings: Findings such as a report's ``filing``; counts add up.
+        """
         for finding in findings:
             entry = self._found.get((finding.rule, finding.code, finding.message))
             if entry is None:
@@ -227,6 +263,12 @@ def _keep(examples: list[str], locations: Iterable[str]) -> None:
 def sort_findings(findings: Iterable[FilingFinding]) -> tuple[FilingFinding, ...]:
     """Order findings by rule number, then the annex requirements.
 
+    Numbered rules come first in numeric order (``2.9`` before ``2.10``),
+    then ``xBRL-CSV n``, then ``Package`` and ``File naming``.
+
+    Args:
+        findings: Findings in any order.
+
     Returns:
         tuple[FilingFinding, ...]: The findings in document order.
     """
@@ -249,6 +291,11 @@ def check_subject(report: Report, log: FilingLog) -> None:
     ``.CON``. Reports from 31 December 2022 onwards must use a suffix
     unless their module name ends in ``_con`` or ``_ind``. A suffix the
     EBA does not list is a warning: other codes are agreed with the EBA.
+
+    Args:
+        report: Report whose entity scheme, identifier, entry point and
+            reference date are checked.
+        log: Log the findings are added to.
     """
     scheme, identifier = report.entity_scheme, report.entity_id
     if not identifier:
@@ -378,6 +425,25 @@ def check_file_name(name: str, report: Report, log: FilingLog) -> None:
     Module_ReferenceDate_CreationTimestamp``, is the one competent
     authorities use when they send reports to the EBA; reporters confirm
     their own with their supervisor, so mismatches are warnings.
+
+    Args:
+        name: File name or path; a ``.zip``, ``.xbrl`` or ``.xml`` suffix
+            is ignored.
+        report: Report whose entity, entry point and reference date the
+            name must match.
+        log: Log the findings are added to.
+
+    Examples:
+        >>> from dpmxbrl import read_report
+        >>> from dpmxbrl.filing import FilingLog, check_file_name
+        >>> log = FilingLog()
+        >>> name = (
+        ...     "529900T8BM49AURSDO55.CON_FR_COREP030300_COREPLE_"
+        ...     "2025-12-31_20260115093000000.zip"
+        ... )
+        >>> check_file_name(name, read_report("report.zip"), log)
+        >>> log.result()
+        ()
     """
     stem = re.sub(
         r"\.(zip|xbrl|xml)$", "", name.rsplit("/", 1)[-1], flags=re.IGNORECASE
@@ -444,7 +510,15 @@ def _module_file(entry_point: str | None) -> str:
 def check_entry_point(
     entry_points: list[str], log: FilingLog, *, where: str, xml: bool
 ) -> None:
-    """Check that one absolute entry point URL is referenced (1.5, 2.2, 2.3)."""
+    """Check that one absolute entry point URL is referenced (1.5, 2.2, 2.3).
+
+    Args:
+        entry_points: Every entry point the report references.
+        log: Log the findings are added to.
+        where: Location for the findings, such as the file name.
+        xml: Whether the report is XBRL-XML, which chooses the tags and
+            the element named in the messages.
+    """
     element = "link:schemaRef" if xml else "documentInfo.extends"
     if not entry_points:
         log.add(

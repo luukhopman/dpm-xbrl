@@ -130,8 +130,16 @@ def _write_table(stream: IO[bytes], facts: list[Fact], keys: list[str]) -> None:
 def default_package_root(report: Report) -> str:
     """Return the default top-level folder name of a written report package.
 
+    Args:
+        report: Report whose entity and reference date name the folder.
+
     Returns:
         str: ``<entity id>_<reference date>`` made path-safe, or ``report``.
+
+    Examples:
+        >>> from dpmxbrl import default_package_root, read_report
+        >>> default_package_root(read_report("report.zip"))
+        '529900T8BM49AURSDO55.CON_2025-12-31'
     """
     parts = [
         part
@@ -164,6 +172,13 @@ def write_xbrl_csv(
     Raises:
         ReportError: If a fact lacks a template or datapoint, or a template
             or root name is not a safe file name.
+
+    Examples:
+        >>> from dpmxbrl import read_report, write_xbrl_csv
+        >>> report = read_report("report.zip")
+        >>> write_xbrl_csv(report, "copy.zip", root="copy")
+        >>> read_report("copy.zip").facts == report.facts
+        True
     """
     folder = root if root is not None else default_package_root(report)
     if not folder or not _SAFE_TEMPLATE.match(folder):
@@ -317,6 +332,16 @@ def write_xbrl_xml(
             is missing, a prefix is undeclared or invalid, a qname has an
             invalid local name, a typed domain is unknown, or a value holds
             a character XML cannot represent.
+
+    Examples:
+        >>> from dpmxbrl import read_report, write_xbrl_xml
+        >>> report = read_report("described.zip", taxonomy_packages=["taxonomy.zip"])
+        >>> typ = "{http://www.eba.europa.eu/xbrl/crr/dict/typ}qCC"
+        >>> write_xbrl_xml(
+        ...     report, "described.xbrl", typed_domains={"eba_dim:qINC": typ}
+        ... )
+        >>> len(read_report("described.xbrl").facts)
+        6
     """
     if not report.entity_id or not report.entity_scheme:
         raise ReportError("XBRL-XML output requires an entity scheme and identifier")

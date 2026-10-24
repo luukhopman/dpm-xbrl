@@ -77,6 +77,7 @@ _LETTER_PART = re.compile(r"\.[a-z](?=\.|$)", re.IGNORECASE)
 ``c_07.00.a`` is filed as ``C_07.00``, ``f_18.00.a.dp`` as ``F_18.00.dp``."""
 
 MetadataResolver = Callable[[str], bytes | None]
+"""Return the bytes of the metadata document at an absolute URL, or ``None``."""
 _Ref = tuple[str, str]
 
 
@@ -127,6 +128,13 @@ def read_xbrl_csv(
 
     Raises:
         ReportError: If the package is invalid, unsafe or over a limit.
+
+    Examples:
+        >>> from dpmxbrl import read_xbrl_csv
+        >>> report = read_xbrl_csv("described.zip", taxonomy_packages=["taxonomy.zip"])
+        >>> fact = report.facts[0]
+        >>> fact.datapoint, fact.concept, fact.unit, fact.decimals
+        ('dp84817', 'eba_met:mi53', 'iso4217:EUR', -3)
     """
     package, report_json = _open_package(source, name=name, limits=limits)
     with package:

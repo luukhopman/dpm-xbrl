@@ -17,7 +17,11 @@ def detect_format(source: str | os.PathLike[str] | bytes) -> ReportFormat:
     """Detect whether input is an xBRL-CSV package or an XBRL-XML instance.
 
     ZIP archives, directories and ``.json`` metadata paths are xBRL-CSV;
-    anything else is read as XBRL-XML.
+    anything else is read as XBRL-XML. A ZIP is recognized by its content,
+    whatever its suffix.
+
+    Args:
+        source: Bytes, a file path, or an xBRL-CSV package directory.
 
     Returns:
         ReportFormat: ``"xbrl-csv"`` or ``"xbrl-xml"``.
@@ -27,6 +31,11 @@ def detect_format(source: str | os.PathLike[str] | bytes) -> ReportFormat:
             ``.zip`` file or one starting like a ZIP archive cannot be read as
             one (it is incomplete or damaged; reading it as XML would only
             report malformed XML).
+
+    Examples:
+        >>> from dpmxbrl import detect_format
+        >>> detect_format("report.zip"), detect_format("instance.xbrl")
+        ('xbrl-csv', 'xbrl-xml')
     """
     if isinstance(source, bytes):
         if zipfile.is_zipfile(io.BytesIO(source)):
@@ -65,9 +74,14 @@ def read_report(
 ) -> Report:
     """Read a report, detecting xBRL-CSV or XBRL-XML from the input.
 
+    The format is detected as by :func:`detect_format`; the input is then
+    read by :func:`read_xbrl_csv` or :func:`read_xbrl_xml`.
+
     Args:
-        source: Bytes, a file path, or an xBRL-CSV package directory.
-        name: Label used in messages and fact locations.
+        source: Bytes, a file path, an xBRL-CSV package directory, or the
+            path of a package's ``report.json``.
+        name: Label used in messages and fact locations, such as the file
+            name of uploaded bytes; the EBA file-naming rule checks it.
         metadata_resolver: xBRL-CSV ``extends`` URL resolver; unused for XML.
         taxonomy_packages: Local taxonomy package ZIPs for xBRL-CSV metadata.
         limits: Resource limits for untrusted input.
@@ -77,6 +91,14 @@ def read_report(
 
     Raises:
         ReportError: If the input cannot be read safely.
+
+    Examples:
+        >>> from dpmxbrl import read_report
+        >>> report = read_report("instance.xbrl")
+        >>> report.format, report.reference_date.isoformat(), len(report.facts)
+        ('xbrl-xml', '2025-12-31', 3)
+        >>> [(finding.rule, finding.code) for finding in report.filing]
+        [('File naming', 'invalidFileName')]
     """
     if detect_format(source) == "xbrl-csv":
         return read_xbrl_csv(

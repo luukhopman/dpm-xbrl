@@ -65,7 +65,13 @@ class MetadataTablesError(ReportError):
 
 @dataclass(frozen=True)
 class ReportFrames:
-    """Report metadata plus one string frame per table template."""
+    """Report metadata plus one string frame per table template.
+
+    Each frame has a categorical ``datapoint`` column, a ``factValue``
+    column of strings (null for ``#nil``) and the table's key columns,
+    categorical, in header order. Rows keep file order, without the rows
+    listed in :attr:`dropped_rows`.
+    """
 
     report: Report
     """The report with ``facts == ()``; use :attr:`tables` for the facts."""
@@ -83,7 +89,11 @@ class ReportFrames:
 
     @property
     def fact_count(self) -> int:
-        """Total number of fact rows across tables."""
+        """Total number of fact rows across tables.
+
+        Returns:
+            int: The sum of the frames' heights.
+        """
         return sum(frame.height for frame in self.tables.values())
 
 
@@ -122,6 +132,14 @@ def read_xbrl_csv_frames(
     Raises:
         MetadataTablesError: If the package has metadata-described tables.
         ReportError: If the package is invalid, unsafe or over a limit.
+
+    Examples:
+        >>> from dpmxbrl.frames import read_xbrl_csv_frames
+        >>> frames = read_xbrl_csv_frames("report.zip")
+        >>> frames.fact_count, sorted(frames.tables)
+        (14, ['c_00.01', 'c_26.00', 'c_27.00', 'c_28.00'])
+        >>> frames.tables["c_28.00"].columns
+        ['datapoint', 'factValue', 'qINC']
     """
     try:
         import polars as pl  # ruff: ignore[unused-import]
