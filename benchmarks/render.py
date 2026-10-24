@@ -61,8 +61,7 @@ NOTES = {
     "csv-7m-frames": "eba-xbridge cannot read xBRL-CSV; its time on the "
     "7.3-million-fact package is its `validate(eba=True)`.",
     "convert-xml-csv": "dpm-xbrl converts with the EBA 4.2 taxonomy packages "
-    "(`write_xbrl_csv(..., taxonomy_packages=...)`), including opening them; "
-    "eba-xbridge uses the module metadata it bundles.",
+    "(`write_xbrl_csv(..., taxonomy_packages=...)`), including opening them.",
 }
 
 

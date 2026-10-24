@@ -270,15 +270,27 @@
     },
     "convert-xml-csv": {
       "eba-xbridge": {
-        "best_s": 42.89,
+        "best_s": 40.14,
         "rss_mb": 498,
         "runs_s": [
-          42.89,
-          44.28,
-          43.44
+          40.14,
+          40.29,
+          40.39
         ],
         "status": 0,
-        "output": "/tmp/dpmxbrl-bench-iq7u7xck/EBA-COREP_OF.zip",
+        "output": "/tmp/dpmxbrl-bench-fgbiwkxp/EBA-COREP_OF.zip",
+        "title": "Convert `EBA-COREP_OF.xbrl` to xBRL-CSV"
+      },
+      "dpm-xbrl": {
+        "best_s": 2.36,
+        "rss_mb": 141,
+        "runs_s": [
+          2.36,
+          2.37,
+          2.37
+        ],
+        "status": 0,
+        "output": "21314 facts 0 left out",
         "title": "Convert `EBA-COREP_OF.xbrl` to xBRL-CSV"
       }
     },
@@ -292,6 +304,32 @@
         "status": 0,
         "output": "7300006 facts 2 findings",
         "title": "Read COREP_LE, 7.3 million facts, one object per fact"
+      }
+    },
+    "convert-xml-csv-finrep": {
+      "dpm-xbrl": {
+        "best_s": 1.43,
+        "rss_mb": 91,
+        "runs_s": [
+          1.43,
+          1.43,
+          1.43
+        ],
+        "status": 0,
+        "output": "13384 facts 0 left out",
+        "title": "Convert `EBA-FINREP9.xbrl` to xBRL-CSV"
+      },
+      "eba-xbridge": {
+        "best_s": 26.77,
+        "rss_mb": 323,
+        "runs_s": [
+          26.9,
+          26.78,
+          26.77
+        ],
+        "status": 0,
+        "output": "/tmp/dpmxbrl-bench-fgbiwkxp/EBA-FINREP9.zip",
+        "title": "Convert `EBA-FINREP9.xbrl` to xBRL-CSV"
       }
     }
   },
@@ -307,11 +345,11 @@
     "cores": 8,
     "memory": "15 GB",
     "load_average": [
-      3.1,
-      3.5,
-      3.3
+      2.2,
+      2.2,
+      2.5
     ],
-    "dpm_xbrl_commit": "c2626b0",
+    "dpm_xbrl_commit": "6189b5d",
     "versions": {
       "Arelle": {
         "version": "2.47.2",
