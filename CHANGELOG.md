@@ -30,6 +30,11 @@ All notable changes to this project are documented here. The project follows
   out and returned with `strict=False` (`convert --skip-unmapped`).
 - `write_xbrl_xml(..., taxonomy_packages=...)` takes typed domains from the
   dimension schemas, so `convert` needs no `--typed-domain` for EBA packages.
+- Both writers take `limits=`, for reading the taxonomy packages.
+- `taxonomy_packages` may be one path, a `str` or `os.PathLike`, as well as
+  a sequence of them.
+- `EntryPointWarning`, which `write_xbrl_xml` gives when it names an XSD
+  entry point by the EBA's naming rather than from the taxonomy packages.
 - `read_xbrl_xml` takes `taxonomy_packages`, and both readers check with them
   the entry point and the module's reference dates (1.5), filing indicator
   codes (1.6, 1.6.3), percentages above 50 (3.2) and, for XML, canonical
@@ -41,7 +46,8 @@ All notable changes to this project are documented here. The project follows
 - With taxonomy packages, decimals are checked against the accuracy
   requirements per data type (2.18).
 - xBRL-CSV tables must hold every column their metadata defines (rule 2)
-  and a value in each key column of a reported fact (rule 4).
+  and a value in each key column of a reported fact (rule 4);
+  `dpmxbrl.filing.MISSING_KEY_VALUE` is the rule 4 tuple for callers.
 - Taxonomy packages may be one ZIP holding the packages, as the EBA
   publishes them.
 - `dpmxbrl.filing.checked_rules(format, *, taxonomy, columnar)` gives the
@@ -65,10 +71,12 @@ All notable changes to this project are documented here. The project follows
 - **Breaking:** `write_xbrl_csv` to a path names the package's root folder
   as the ZIP file, without `.zip`, as the EBA filing rules ask;
   `default_package_root` still names it for streams.
-- **Breaking:** the `dimensions`, `typed_dimensions` and `keys` mappings of
-  facts that are read are read-only `dict`s that facts may share; assigning
-  to one raises `TypeError`, so copy it with `dict()` to change it. They
-  pickle, copy and serialize as plain dicts.
+- **Breaking:** the mappings of a report that is read are read-only
+  `dict`s: the `dimensions`, `typed_dimensions` and `keys` of its facts,
+  which facts may share, and its `parameters`, `decimals_parameters`,
+  `filing_indicators` and `namespaces`. Assigning to one raises
+  `TypeError`, so copy it with `dict()` to change it. They pickle, copy and
+  serialize as plain dicts.
 - `inspect` no longer prints a `(none)` per-template row for XML reports,
   whose facts have no template.
 - `detect_format` is annotated to return `ReportFormat`.
@@ -94,8 +102,10 @@ All notable changes to this project are documented here. The project follows
   such an instance breaks filing rule 1.4.
 - Every unreadable input raises `ReportError`: unknown or multi-byte XML
   encodings, unreadable files, ZIP entries with an unsupported compression
-  method, damaged taxonomy package entries, JSON nested too deeply and a
-  malformed `propertiesFrom`.
+  method or version, damaged report and taxonomy package archives, JSON
+  nested too deeply and a malformed `propertiesFrom`. URLs that cannot be
+  parsed are unresolved rather than raising `ValueError`, and
+  `ReportError` subclasses pickle with their `problems`.
 - A `refPeriod` must be a `YYYY-MM-DD` or `YYYYMMDD` date: week dates and
   mixed or non-ASCII digits are rejected. An XML period must start with a
   `YYYY-MM-DD` date, as `xs:date` requires.
