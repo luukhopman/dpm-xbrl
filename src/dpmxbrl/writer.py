@@ -28,7 +28,7 @@ from ._module import (
 )
 from ._taxonomy import TaxonomyPackages
 from .csv_reader import XBRL_CSV_DOCUMENT_TYPE
-from .model import Fact, Limits, Report, ReportError
+from .model import Fact, Limits, Report, ReportError, SkippedFacts
 from .xml_reader import FIND, ISO4217, LINK, XBRLDI, XBRLI, XLINK, XSI
 
 REPORT_PACKAGE_DOCUMENT_TYPE = "https://xbrl.org/report-package/2023"
@@ -145,6 +145,20 @@ def _write_table(
     text.detach()
 
 
+def _target_root(target: str | Path | IO[bytes], report: Report) -> str:
+    """Name the root folder as the ZIP file, as the EBA filing rules ask.
+
+    Returns:
+        str: The target's file name without ``.zip``, or
+        ``default_package_root(report)`` for a stream or another name.
+    """
+    if isinstance(target, str | Path):
+        name = Path(target).name
+        if name.casefold().endswith(".zip") and _SAFE_TEMPLATE.match(name[:-4]):
+            return name[:-4]
+    return default_package_root(report)
+
+
 def default_package_root(report: Report) -> str:
     """Return the default top-level folder name of a written report package.
 
@@ -179,7 +193,7 @@ def write_xbrl_csv(
     taxonomy_packages: Sequence[str | Path] = (),
     strict: bool = True,
     limits: Limits = Limits(),
-) -> tuple[tuple[Fact, str], ...]:
+) -> SkippedFacts:
     """Write an EBA xBRL-CSV report package ZIP.
 
     The package holds ``META-INF/reportPackage.json``, ``reports/report.json``,
@@ -200,7 +214,9 @@ def write_xbrl_csv(
         report: Report to write; without taxonomy packages every fact needs a
             template and datapoint.
         target: Destination path or writable binary stream.
-        root: Top-level folder name; defaults to ``default_package_root``.
+        root: Top-level folder name; defaults to the target's file name
+            without ``.zip``, as the EBA filing rules ask, or to
+            ``default_package_root`` for a stream.
         taxonomy_packages: Local taxonomy package ZIPs holding the module's
             xBRL-CSV metadata, used to place facts by concept.
         strict: With taxonomy packages, whether a fact that cannot be placed
@@ -209,8 +225,8 @@ def write_xbrl_csv(
         limits: Resource limits for reading the taxonomy packages.
 
     Returns:
-        tuple[tuple[Fact, str], ...]: The facts left out, each with the
-        reason; always empty when ``strict`` is true.
+        SkippedFacts: The facts left out, each with the reason; always
+        empty when ``strict`` is true.
 
     Raises:
         ReportError: If a fact lacks a template or datapoint (without
@@ -225,7 +241,7 @@ def write_xbrl_csv(
         >>> read_report("copy.zip").facts == report.facts
         True
     """
-    folder = root if root is not None else default_package_root(report)
+    folder = root if root is not None else _target_root(target, report)
     if not folder or not _SAFE_TEMPLATE.match(folder):
         raise ReportError(f"unsafe report package root folder {folder!r}")
     placed: _PlacedTables | None = None
@@ -332,7 +348,7 @@ class _PlacedTables:
         self.names = names
         self.rows: dict[str, list[list[str]]] = {}
         self.parameters: dict[str, str] = {}
-        self.skipped: tuple[tuple[Fact, str], ...] = ()
+        self.skipped: SkippedFacts = ()
 
     def parameter_rows(self, report: Report) -> list[list[str]]:
         namespaces = {**self.index.module.namespaces, **self.names.extra}

@@ -20,6 +20,7 @@ from .model import (
     ReportError,
     ReportFormat,
     Severity,
+    SkippedFacts,
     local_name,
 )
 from .reader import detect_format, read_report
@@ -34,6 +35,7 @@ __all__ = [
     "ReportError",
     "ReportFormat",
     "Severity",
+    "SkippedFacts",
     "__version__",
     "default_package_root",
     "detect_format",

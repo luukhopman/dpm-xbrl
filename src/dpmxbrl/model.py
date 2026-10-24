@@ -228,3 +228,7 @@ def local_name(qname: str) -> str:
     if qname.startswith("{"):
         return qname.rpartition("}")[2]
     return qname.partition(":")[2] or qname
+
+
+SkippedFacts = tuple[tuple[Fact, str], ...]
+"""Facts that ``write_xbrl_csv(..., strict=False)`` left out, each with why."""
