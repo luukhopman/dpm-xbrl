@@ -196,7 +196,9 @@ def test_two_report_json_files_are_rejected() -> None:
         (
             "reports/report.json",
             "[" * 100_000 + "]" * 100_000,
-            "nested too deeply",
+            # Python overflows the stack on this, unless the stack is large
+            # enough to parse it; either way it is a ReportError.
+            "nested too deeply|expected a JSON object",
         ),
         (
             "reports/parameters.csv",
