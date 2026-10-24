@@ -17,11 +17,11 @@ Filing-rule findings on values are limited to special values (``#nil``,
 second scan of millions of strings, so they are left to callers that already
 split values by data type and key column.
 
-Table files are parsed by polars, which is more lenient than the ``csv``
-module: a row with fewer cells than the header is padded with empty cells
-instead of rejected, and line numbers in findings count data rows rather
-than physical lines, so they differ when a file has blank lines or values
-spanning lines.
+Table files are parsed by polars, which differs from the ``csv`` module: a
+row with fewer cells than the header is padded with empty cells instead of
+rejected, lines must end in LF or CRLF, and line numbers in findings count
+data rows rather than physical lines, so they differ when a file has blank
+lines or values spanning lines.
 
 Rows with no fact (an empty value, ``#empty`` or ``#none``) and exact
 duplicate rows are removed, so a frame's row index is not the row's place in
@@ -303,9 +303,13 @@ def _parse(data: bytes, display: str) -> _Parsed:
         raise ReportError(f"{display}: {error}") from error
     # polars renames a repeated column and names an empty one; the header
     # row as written is checked like read_xbrl_csv checks it.
-    written = next(csv.reader([data.split(b"\n", 1)[0].decode("utf-8-sig")]), [])
+    try:
+        text = io.TextIOWrapper(io.BytesIO(data), encoding="utf-8-sig", newline="")
+        written = next(csv.reader(text, strict=True), [])
+    except (csv.Error, UnicodeDecodeError) as error:
+        raise ReportError(f"{display}:1: unreadable table header ({error})") from error
     del data
-    if any(not column.strip("\r") for column in written):
+    if any(not column for column in written):
         raise ReportError(f"{display}:1: table header has an empty column name")
     duplicates = sorted({column for column in written if written.count(column) > 1})
     if duplicates:

@@ -274,3 +274,23 @@ def test_headers_are_checked_like_read_xbrl_csv(header: str, message: str) -> No
         read_xbrl_csv_frames(zip_bytes(files))
     with pytest.raises(ReportError, match=message):
         read_xbrl_csv(zip_bytes(files))
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        b"\xef\xbb\xbfdatapoint,factValue\r\ndp1,1\r\n",
+        b'"datapoint","factValue"\ndp1,1\n',
+    ],
+)
+def test_header_spellings_read_like_read_xbrl_csv(content: bytes) -> None:
+    files = closed_files(**{"reports/c_01.00.csv": content})
+    frame = read_xbrl_csv_frames(zip_bytes(files)).tables["c_01.00"]
+    assert frame.columns == ["datapoint", "factValue"]
+    assert read_xbrl_csv(zip_bytes(files)).facts[0].value == "1"
+
+
+def test_carriage_return_line_ends_are_rejected_cleanly() -> None:
+    files = closed_files(**{"reports/c_01.00.csv": b"datapoint,factValue\rdp1,1\r"})
+    with pytest.raises(ReportError):
+        read_xbrl_csv_frames(zip_bytes(files))
