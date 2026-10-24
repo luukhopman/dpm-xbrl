@@ -236,7 +236,7 @@ def sort_findings(findings: Iterable[FilingFinding]) -> tuple[FilingFinding, ...
 def _rule_order(rule: str) -> tuple[int, ...]:
     if re.fullmatch(r"\d+(\.\d+)*", rule):
         return (0, *map(int, rule.split(".")))
-    if rule.startswith("xBRL-CSV "):
+    if re.fullmatch(r"xBRL-CSV \d+", rule):
         return (1, int(rule.removeprefix("xBRL-CSV ")))
     return (2, list(RULE_TITLES).index(rule) if rule in RULE_TITLES else 99)
 

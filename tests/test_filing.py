@@ -818,3 +818,16 @@ def test_findings_sort_in_document_order() -> None:
         "xBRL-CSV 5",
         "File naming",
     ]
+
+
+def test_caller_findings_with_any_rule_name_sort() -> None:
+    findings = [
+        FilingFinding("xBRL-CSV custom", "a", "warning", "m"),
+        FilingFinding("1.6", "b", "error", "m"),
+        FilingFinding("xBRL-CSV 5", "c", "error", "m"),
+    ]
+    assert [item.rule for item in sort_findings(findings)] == [
+        "1.6",
+        "xBRL-CSV 5",
+        "xBRL-CSV custom",
+    ]
