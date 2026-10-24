@@ -29,7 +29,7 @@ from ._package import (
     open_zip_package,
 )
 from ._taxonomy import TaxonomyPackages
-from ._util import WarningLog, load_json_object
+from ._util import EMPTY_MAPPING, WarningLog, gc_paused, load_json_object
 from .filing import (
     DECIMALS_SUFFIX,
     EMPTY_VALUE,
@@ -311,10 +311,12 @@ class _CsvReportReader:
         check_subject(header, self._filing)
         self._check_names(header)
         self._before_tables(header)
-        self._read_tables(metadata)
+        with gc_paused():
+            self._read_tables(metadata)
+            facts = tuple(self._facts)
         return replace(
             header,
-            facts=tuple(self._facts),
+            facts=facts,
             warnings=self._warnings.result(),
             filing=self._filing.result(),
         )
@@ -802,6 +804,8 @@ class _CsvReportReader:
             for index, column in enumerate(header)
             if index not in {datapoint_index, value_index}
         ]
+        key_names = tuple(column for _, column in key_columns)
+        datapoints: dict[str, str] = {}
         for line, row in self._rows(rows, len(header), display):
             location = f"{display}:{line}"
             keep, value = self._fact_value(row[value_index], display, location)
@@ -810,17 +814,27 @@ class _CsvReportReader:
             datapoint = row[datapoint_index] or None
             if datapoint is None:
                 self._warnings.count(f"{display}: facts without a datapoint", location)
-            keys = {column: row[index] for index, column in key_columns}
-            self._check_keys(keys, location)
+            else:
+                # Open tables repeat each datapoint code on many rows.
+                datapoint = datapoints.setdefault(datapoint, datapoint)
+            if key_columns:
+                key_values = tuple(row[index] for index, _ in key_columns)
+                keys: Mapping[str, str] = dict(zip(key_names, key_values, strict=True))
+                self._check_keys(keys, location)
+            else:
+                key_values = ()
+                keys = EMPTY_MAPPING
             self._emit(
                 Fact(
                     value=value,
                     datapoint=datapoint,
                     template=template_id,
+                    dimensions=EMPTY_MAPPING,
+                    typed_dimensions=EMPTY_MAPPING,
                     keys=keys,
                     location=location,
                 ),
-                (template_id, "factValue", datapoint, tuple(keys.items())),
+                (template_id, "factValue", datapoint, key_names, *key_values),
                 display,
             )
 
@@ -912,12 +926,17 @@ class _CsvReportReader:
         )
         if not fact_columns:
             self._warnings.add(f"{display}: table template defines no fact columns")
+        key_names = tuple(column for _, column in key_columns)
         for line, row in self._rows(rows, len(header), display):
             location = f"{display}:{line}"
             cells = dict(zip(header, row, strict=True))
-            keys = {column: row[index] for index, column in key_columns}
+            key_values = tuple(row[index] for index, _ in key_columns)
+            keys: Mapping[str, str] = (
+                dict(zip(key_names, key_values, strict=True))
+                if key_columns
+                else EMPTY_MAPPING
+            )
             self._check_keys(keys, location)
-            key_items = tuple(keys.items())
             for column in fact_columns:
                 keep, value = self._fact_value(row[column.index], display, location)
                 if not keep:
@@ -957,7 +976,7 @@ class _CsvReportReader:
                 )
                 self._emit(
                     fact,
-                    (template_id, column.name, fact.datapoint, key_items),
+                    (template_id, column.name, fact.datapoint, key_names, *key_values),
                     display,
                 )
 
@@ -1049,8 +1068,8 @@ class _CsvReportReader:
             concept=concept,
             datapoint=datapoint,
             template=template_id,
-            dimensions=explicit,
-            typed_dimensions=typed,
+            dimensions=explicit or EMPTY_MAPPING,
+            typed_dimensions=typed or EMPTY_MAPPING,
             keys=keys,
             unit=unit,
             decimals=decimals,

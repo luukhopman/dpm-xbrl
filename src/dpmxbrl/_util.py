@@ -2,11 +2,50 @@
 
 from __future__ import annotations
 
+import gc
 import json
+import threading
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any
 
 from .model import ReportError
+
+EMPTY_MAPPING: MappingProxyType[str, str] = MappingProxyType({})
+"""Read-only empty mapping shared by facts without dimensions or keys."""
+
+_gc_lock = threading.Lock()
+_gc_pauses = 0
+_gc_was_enabled = False
+
+
+@contextmanager
+def gc_paused() -> Generator[None]:
+    """Pause the cyclic garbage collector while a report's facts are built.
+
+    Facts form no reference cycles, but millions of new tracked objects make
+    the collector rescan the growing heap; pausing it halves read times of
+    large reports. Nested and concurrent pauses re-enable the collector only
+    when the last one ends, and only if it was enabled before the first.
+
+    Yields:
+        None: Control while the collector is paused.
+    """
+    global _gc_pauses, _gc_was_enabled
+    with _gc_lock:
+        if _gc_pauses == 0:
+            _gc_was_enabled = gc.isenabled()
+            gc.disable()
+        _gc_pauses += 1
+    try:
+        yield
+    finally:
+        with _gc_lock:
+            _gc_pauses -= 1
+            if _gc_pauses == 0 and _gc_was_enabled:
+                gc.enable()
 
 
 @dataclass(slots=True)

@@ -13,14 +13,15 @@ import os
 import re
 import sys
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
+from types import MappingProxyType
 from typing import IO, Any
 from xml.etree import ElementTree as ET
 
-from ._util import WarningLog
+from ._util import EMPTY_MAPPING, WarningLog, gc_paused
 from ._xmlsafe import check_prolog
 from .filing import FilingLog, check_entry_point, check_file_name, check_subject
 from .model import Fact, Limits, Report, ReportError
@@ -64,8 +65,9 @@ class _Context:
     scheme: str | None
     identifier: str | None
     reference_date: date | None
-    dimensions: dict[str, str]
-    typed_dimensions: dict[str, str]
+    dimensions: Mapping[str, str]
+    """Read-only, and shared by the facts of the context."""
+    typed_dimensions: Mapping[str, str]
     signature: int
     """Index of the context's content; equal contexts share it."""
     qualified: bool
@@ -141,7 +143,8 @@ def read_xbrl_xml(
             )
         head = check_prolog(io.BytesIO(source).read, label)
         reader = _InstanceReader(label, limits, head, file_name=name)
-        return reader.read(io.BytesIO(source))
+        with gc_paused():
+            return reader.read(io.BytesIO(source))
     path = Path(source).expanduser()
     label = name or path.name
     if not path.is_file():
@@ -152,8 +155,12 @@ def read_xbrl_xml(
         )
     with path.open("rb") as stream:
         head = check_prolog(stream.read, label)
-    with path.open("rb") as stream:
+    with path.open("rb") as stream, gc_paused():
         return _InstanceReader(label, limits, head, file_name=label).read(stream)
+
+
+def _frozen(mapping: dict[str, str]) -> Mapping[str, str]:
+    return MappingProxyType(mapping) if mapping else EMPTY_MAPPING
 
 
 class _ForbiddenAttributeScanner:
@@ -608,8 +615,8 @@ class _InstanceReader:
             builder.scheme,
             builder.identifier,
             reference_date,
-            builder.dimensions,
-            builder.typed_dimensions,
+            _frozen(builder.dimensions),
+            _frozen(builder.typed_dimensions),
             known[0],
             builder.segment or builder.scenario,
             builder.denomination,
@@ -851,8 +858,8 @@ class _InstanceReader:
                 Fact(
                     value=raw.value,
                     concept=raw.concept,
-                    dimensions=dict(context.dimensions),
-                    typed_dimensions=dict(context.typed_dimensions),
+                    dimensions=context.dimensions,
+                    typed_dimensions=context.typed_dimensions,
                     unit=unit,
                     decimals=raw.decimals,
                     location=raw.location,
