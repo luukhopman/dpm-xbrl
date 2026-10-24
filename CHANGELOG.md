@@ -3,21 +3,15 @@
 All notable changes to this project are documented here. The project follows
 [semantic versioning](https://semver.org).
 
-## Unreleased
-
-### Added
-
-- A documentation site at https://luukhopman.github.io/dpm-xbrl/, with
-  `llms.txt` and `llms-full.txt` for AI agents.
-
-### Fixed
-
-- `inspect --help` gives 3, not 2, as the `--fail-on` exit status.
-
 ## 1.0.0 - 2026-10-24
 
 ### Added
 
+- Python 3.15 support, tested in CI on 3.11 to 3.15 with and without extras.
+  On 3.15 the `fast` extra installs without `isal`, which has no 3.15
+  wheels yet, and ZIP entries are inflated with zlib.
+- A documentation site at https://luukhopman.github.io/dpm-xbrl/, with
+  `llms.txt` and `llms-full.txt` for AI agents.
 - `dpm-xbrl inspect --fail-on error|warning` exits with status 3 when the
   report breaks a filing rule of that severity (2 stays the usage-error
   status); `--version`, and examples in `--help`. A limit error names the
