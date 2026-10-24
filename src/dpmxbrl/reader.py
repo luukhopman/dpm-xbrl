@@ -13,7 +13,9 @@ from .model import Limits, Report, ReportError, ReportFormat
 from .xml_reader import read_xbrl_xml
 
 
-def detect_format(source: str | os.PathLike[str] | bytes) -> ReportFormat:
+def detect_format(
+    source: str | os.PathLike[str] | bytes, *, name: str | None = None
+) -> ReportFormat:
     """Detect whether input is an xBRL-CSV package or an XBRL-XML instance.
 
     ZIP archives, directories and ``.json`` metadata paths are xBRL-CSV;
@@ -22,6 +24,8 @@ def detect_format(source: str | os.PathLike[str] | bytes) -> ReportFormat:
 
     Args:
         source: Bytes, a file path, or an xBRL-CSV package directory.
+        name: Label used in messages instead of the path, such as the file
+            name of uploaded bytes.
 
     Returns:
         ReportFormat: ``"xbrl-csv"`` or ``"xbrl-xml"``.
@@ -41,7 +45,7 @@ def detect_format(source: str | os.PathLike[str] | bytes) -> ReportFormat:
         if zipfile.is_zipfile(io.BytesIO(source)):
             return "xbrl-csv"
         if source.startswith(_ZIP_SIGNATURE):
-            raise ReportError(_DAMAGED_ZIP.format(name="the report"))
+            raise ReportError(_DAMAGED_ZIP.format(name=name or "the report"))
         return "xbrl-xml"
     path = Path(source).expanduser()
     if path.is_dir():
@@ -56,7 +60,7 @@ def detect_format(source: str | os.PathLike[str] | bytes) -> ReportFormat:
     except OSError as error:
         raise ReportError(f"{path}: cannot be read ({error.strerror})") from error
     if zip_like or path.suffix.casefold() == ".zip":
-        raise ReportError(_DAMAGED_ZIP.format(name=path.name))
+        raise ReportError(_DAMAGED_ZIP.format(name=name or path.name))
     return "xbrl-xml"
 
 
@@ -101,7 +105,7 @@ def read_report(
         >>> [(finding.rule, finding.code) for finding in report.filing]
         [('File naming', 'invalidFileName')]
     """
-    if detect_format(source) == "xbrl-csv":
+    if detect_format(source, name=name) == "xbrl-csv":
         return read_xbrl_csv(
             source,
             name=name,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
@@ -185,13 +186,15 @@ class Report:
     def facts_for_template(self, code: str) -> tuple[Fact, ...]:
         """Select facts reported in one xBRL-CSV table template.
 
-        Template codes compare case-insensitively, so filing-indicator codes
-        such as ``C_01.00`` match table templates such as ``c_01.00``. Letter
-        parts are not dropped: ``C_07.00`` does not match ``c_07.00.a``.
-        XML facts have no template, so nothing matches in an XML report.
+        Template codes compare case-insensitively, and a table also matches
+        its filing indicator, its code without single-letter parts: both
+        ``c_07.00.a`` and ``C_07.00`` select the facts of ``c_07.00.a.csv``,
+        and ``C_07.00`` those of ``c_07.00.b.csv`` too. XML facts have no
+        template, so nothing matches in an XML report.
 
         Args:
-            code: Template code, such as ``C_27.00`` or ``c_07.00.a``.
+            code: Template code or filing indicator, such as ``C_27.00`` or
+                ``c_07.00.a``.
 
         Returns:
             tuple[Fact, ...]: Matching facts in source order.
@@ -203,11 +206,46 @@ class Report:
             ['67129000', '60309000', '41250000', '38900000']
         """
         wanted = code.casefold()
-        return tuple(
-            fact
-            for fact in self.facts
-            if fact.template is not None and fact.template.casefold() == wanted
-        )
+        matches: dict[str, bool] = {}
+        selected: list[Fact] = []
+        for fact in self.facts:
+            template = fact.template
+            if template is None:
+                continue
+            match = matches.get(template)
+            if match is None:
+                folded = template.casefold()
+                match = matches[template] = folded == wanted or (
+                    filing_indicator_code(folded) == wanted
+                )
+            if match:
+                selected.append(fact)
+        return tuple(selected)
+
+
+_LETTER_PART = re.compile(r"\.[a-z](?=\.|$)", re.IGNORECASE)
+"""Single-letter parts of a table code, which its filing indicator omits."""
+
+
+def filing_indicator_code(template: str) -> str:
+    """Return the filing indicator code of an xBRL-CSV table template.
+
+    Single-letter parts are dropped: ``c_07.00.a`` is filed as ``c_07.00``,
+    ``f_18.00.a.dp`` as ``f_18.00.dp``. Filing indicators compare
+    case-insensitively.
+
+    Args:
+        template: Table template id, such as a table file's stem.
+
+    Returns:
+        str: The template id without single-letter parts.
+
+    Examples:
+        >>> from dpmxbrl import filing_indicator_code
+        >>> filing_indicator_code("c_07.00.a"), filing_indicator_code("F_18.00.a.dp")
+        ('c_07.00', 'F_18.00.dp')
+    """
+    return _LETTER_PART.sub("", template)
 
 
 def local_name(qname: str) -> str:

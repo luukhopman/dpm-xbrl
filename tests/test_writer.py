@@ -10,6 +10,7 @@ from zipfile import ZipFile
 import pytest
 
 from dpmxbrl import (
+    EntryPointWarning,
     Fact,
     Report,
     ReportError,
@@ -228,12 +229,14 @@ def test_metadata_csv_converts_to_xml(tmp_path: Path) -> None:
     namespaces = {**report.namespaces, "eba_typ": "http://example.com/typ"}
     buffer = io.BytesIO()
 
-    write_xbrl_xml(
-        replace(report, namespaces=namespaces),
-        buffer,
-        typed_domains=TYPED,
-    )
+    with pytest.warns(EntryPointWarning, match="corep_of.xsd"):
+        write_xbrl_xml(
+            replace(report, namespaces=namespaces),
+            buffer,
+            typed_domains=TYPED,
+        )
     xml = read_report(buffer.getvalue())
+    assert xml.entry_point == str(report.entry_point).removesuffix(".json") + ".xsd"
 
     assert _xml_view(xml) == _xml_view(report)
     assert xml.reference_date == date(2024, 12, 31)

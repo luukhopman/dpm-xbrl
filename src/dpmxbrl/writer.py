@@ -8,6 +8,7 @@ import json
 import math
 import posixpath
 import re
+import warnings
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack
@@ -25,6 +26,7 @@ from ._module import (
     describe,
     fact_members,
     load_module,
+    module_json_url,
 )
 from ._taxonomy import TaxonomyPackages
 from .csv_reader import XBRL_CSV_DOCUMENT_TYPE
@@ -603,6 +605,9 @@ def write_xbrl_xml(
     with decimals but no unit, as xBRL-CSV metadata gives pure facts, gets
     ``xbrli:pure``. A fact repeated with the same concept, dimensions, unit,
     value and decimals, as in several xBRL-CSV tables, is written once.
+    The ``schemaRef`` names the module's XSD entry point: a JSON entry point,
+    as xBRL-CSV reports extend, is mapped to the XSD that the taxonomy
+    packages list for it, or else named by the EBA's convention.
 
     Args:
         report: Report to write; every fact needs a concept.
@@ -623,6 +628,10 @@ def write_xbrl_xml(
             is missing, a prefix is undeclared or invalid, a qname has an
             invalid local name, a typed domain is unknown, or a value holds
             a character XML cannot represent.
+
+    Warns:
+        EntryPointWarning: If the XSD entry point for a JSON one comes from
+            the EBA's naming convention rather than the taxonomy packages.
 
     Examples:
         >>> from dpmxbrl import read_report, write_xbrl_xml
@@ -650,6 +659,45 @@ def write_xbrl_xml(
             writer.flush()
         finally:
             writer.detach()
+
+
+class EntryPointWarning(UserWarning):
+    """``write_xbrl_xml`` named an XSD entry point it could not confirm."""
+
+
+def _schema_entry_point(entry_point: str, taxonomy: TaxonomyPackages | None) -> str:
+    """Return the XSD entry point for a ``schemaRef``.
+
+    An xBRL-CSV report extends the module's JSON entry point; XML references
+    its XSD. The taxonomy packages' entry points confirm the XSD; without
+    them, or when they do not list it, the EBA's naming (``corep_of.json``
+    beside ``corep_of.xsd``) gives it with an :class:`EntryPointWarning`.
+
+    Returns:
+        str: The XSD URL, or ``entry_point`` when it is not a JSON URL.
+    """
+    stem, extension = posixpath.splitext(entry_point)
+    if extension.casefold() != ".json":
+        return entry_point
+    if taxonomy is not None:
+        for point in sorted(taxonomy.entry_points):
+            if point.casefold().endswith(".xsd") and module_json_url(point) == (
+                entry_point
+            ):
+                return point
+    schema = f"{stem}.xsd"
+    warnings.warn(
+        f"the schemaRef {schema} is the JSON entry point {entry_point} with .xsd, "
+        "as the EBA names modules; "
+        + (
+            "the taxonomy packages do not list it"
+            if taxonomy is not None
+            else "taxonomy packages can confirm it"
+        ),
+        EntryPointWarning,
+        stacklevel=4,
+    )
+    return schema
 
 
 def _xml_lines(
@@ -790,9 +838,10 @@ def _xml_lines(
     )
     lines.append(f"<{xbrli}:xbrl {declarations}>")
     if report.entry_point:
+        schema = _schema_entry_point(report.entry_point, taxonomy)
         lines.append(
             f'  <{link}:schemaRef {xlink}:type="simple" '
-            f"{xlink}:href={_attribute(report.entry_point)}/>"
+            f"{xlink}:href={_attribute(schema)}/>"
         )
     if report.filing_indicators:
         base = contexts[()]

@@ -533,3 +533,27 @@ def test_nested_taxonomy_packages(tmp_path: Path, csv_report: Report) -> None:
         archive.writestr("readme.txt", "x")
     with pytest.raises(ReportError, match=r"no META-INF/catalog\.xml"):
         write_xbrl_xml(csv_report, io.BytesIO(), taxonomy_packages=[nothing])
+
+
+def test_schema_ref_is_the_listed_xsd(csv_report: Report, package: Path) -> None:
+    import warnings
+
+    buffer = io.BytesIO()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        write_xbrl_xml(csv_report, buffer, taxonomy_packages=[package])
+    assert read_report(buffer.getvalue()).entry_point == ENTRY_POINT_XSD
+
+
+def test_facts_for_template_matches_filing_indicators(tmp_path: Path) -> None:
+    files = metadata_files()
+    files["reports/c_07.00.a.csv"] = "datapoint,factValue\r\ndp1,1\r\n"
+    files["reports/c_07.00.b.csv"] = "datapoint,factValue\r\ndp2,2\r\n"
+    report = read_report(write_zip(tmp_path / "r.zip", files))
+    assert [f.value for f in report.facts_for_template("C_07.00")] == ["1", "2"]
+    assert [f.value for f in report.facts_for_template("c_07.00.B")] == ["2"]
+
+
+def test_damaged_zip_error_uses_the_name() -> None:
+    with pytest.raises(ReportError, match=r"^upload\.zip is not a readable ZIP"):
+        read_report(b"PK\x03\x04broken", name="upload.zip")

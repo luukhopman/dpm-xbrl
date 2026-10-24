@@ -46,7 +46,7 @@ from .filing import (
     check_file_name,
     check_subject,
 )
-from .model import Fact, Limits, Report, ReportError
+from .model import Fact, Limits, Report, ReportError, filing_indicator_code
 
 XBRL_CSV_DOCUMENT_TYPE = "https://xbrl.org/2021/xbrl-csv"
 REPORT_PACKAGE_DOCUMENT_TYPES = frozenset(
@@ -75,9 +75,6 @@ _CALENDAR_DATE = re.compile(
 )
 _DECIMALS_SUFFIX = re.compile(r"[-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?d(?:[-+]?[0-9]+|INF)")
 """A value with the xBRL-CSV decimals suffix, such as ``78920030d-4``."""
-_LETTER_PART = re.compile(r"\.[a-z](?=\.|$)", re.IGNORECASE)
-"""Single-letter parts of a table code, which its filing indicator omits:
-``c_07.00.a`` is filed as ``C_07.00``, ``f_18.00.a.dp`` as ``F_18.00.dp``."""
 
 MetadataResolver = Callable[[str], bytes | None]
 """Return the bytes of the metadata document at an absolute URL, or ``None``."""
@@ -827,7 +824,7 @@ class _CsvReportReader:
         Returns:
             bool: Whether the template is indicated as not reported.
         """
-        return _LETTER_PART.sub("", template_id).casefold() in self._negative
+        return filing_indicator_code(template_id).casefold() in self._negative
 
     def _header(self, rows: Iterator[tuple[int, list[str]]], display: str) -> list[str]:
         first = next(rows, None)
