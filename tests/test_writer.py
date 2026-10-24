@@ -238,3 +238,14 @@ def test_metadata_csv_converts_to_xml(tmp_path: Path) -> None:
     assert _xml_view(xml) == _xml_view(report)
     assert xml.reference_date == date(2024, 12, 31)
     assert xml.filing_indicators == report.filing_indicators
+
+
+def test_typed_domains_may_use_clark_notation() -> None:
+    report = read_report(XML_INSTANCE.encode())
+    domains = dict.fromkeys(TYPED, "{http://example.com/typ}CC")
+    target = io.BytesIO()
+    write_xbrl_xml(report, target, typed_domains=domains)
+    text = target.getvalue().decode()
+    assert 'xmlns:typ="http://example.com/typ"' in text
+    assert "<typ:CC>" in text
+    assert _xml_view(read_report(target.getvalue())) == _xml_view(report)

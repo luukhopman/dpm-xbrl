@@ -308,7 +308,9 @@ def write_xbrl_xml(
         report: Report to write; every fact needs a concept.
         target: Destination path or writable binary stream.
         typed_domains: Typed dimension qname to the qname of its typed domain
-            element, required for each typed dimension used by a fact.
+            element, with a prefix the report declares or in Clark notation
+            (``{namespace}local``, declared under a new prefix if needed);
+            required for each typed dimension used by a fact.
 
     Raises:
         ReportError: If a fact lacks a concept, the entity or reference date
@@ -320,8 +322,17 @@ def write_xbrl_xml(
         raise ReportError("XBRL-XML output requires an entity scheme and identifier")
     if report.reference_date is None:
         raise ReportError("XBRL-XML output requires a reference date")
-    domains = dict(typed_domains or {})
     namespaces = _Namespaces(report.namespaces)
+    # A domain element in Clark notation, {namespace}local, gets a prefix.
+    domains = {
+        dimension: (
+            f"{namespaces.prefix(element[1:].partition('}')[0], 'typ')}:"
+            f"{element.partition('}')[2]}"
+            if element.startswith("{") and "}" in element
+            else element
+        )
+        for dimension, element in (typed_domains or {}).items()
+    }
     xbrli = namespaces.prefix(XBRLI, "xbrli")
     link = namespaces.prefix(LINK, "link")
     xlink = namespaces.prefix(XLINK, "xlink")
