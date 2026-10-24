@@ -23,7 +23,9 @@ per-file uncompressed size, facts, and the depth of xBRL-CSV `extends`.
 Sizes are checked against the ZIP's directory before anything is inflated,
 and inflation never produces more than an entry declares, so an entry that
 understates its size is rejected rather than inflated without bound. The file-size limit
-also applies to XML instances and to files read from taxonomy packages.
+also applies to XML instances and to files read from taxonomy packages,
+whose reads also count towards the total-size limit; a taxonomy package
+ZIP may hold up to `max_taxonomy_entries` entries.
 
 ## ZIP packages and directories
 
@@ -32,7 +34,9 @@ also applies to XML instances and to files read from taxonomy packages.
 - Entries are read straight from the ZIP; nothing is extracted to disk.
 - A package directory is rejected if a link leaves it, and each file is
   checked again when it is opened.
-- An entry with damaged compressed data raises `ReportError` naming it.
+- An entry with damaged compressed data raises `ReportError` naming it, as
+  does any archive or entry `zipfile` cannot read, in report and taxonomy
+  packages alike.
 
 ## XML
 

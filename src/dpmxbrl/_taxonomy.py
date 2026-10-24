@@ -8,9 +8,9 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from zipfile import BadZipFile, ZipFile
+from zipfile import ZipFile
 
-from ._package import DAMAGED_ENTRY_ERRORS, DamagedEntryError
+from ._package import ZIP_ERRORS, DamagedEntryError
 from ._util import join_url
 from ._xmlsafe import parse_catalog_rewrites, parse_entry_points, parse_schema
 from .model import Limits, ReportError
@@ -59,6 +59,7 @@ class TaxonomyPackages:
         self._limits = limits
         self._archives: list[ZipFile] = []
         self._labels: list[str] = []
+        self._total = 0
         self._rewrites: list[tuple[str, int, str]] = []
         self._entry_points: set[str] = set()
         self._schema_files: dict[str, list[tuple[int, str]]] | None = None
@@ -75,12 +76,13 @@ class TaxonomyPackages:
         label = str(path)
         try:
             archive = ZipFile(path)
-        except (BadZipFile, OSError) as error:
+        except ZIP_ERRORS as error:
             raise ReportError(
                 f"{label}: not a readable taxonomy package ZIP ({error})"
             ) from error
         self._archives.append(archive)
         self._labels.append(label)
+        self._check_entries(archive, label)
         if self._catalogs(archive):
             self._add_catalogs(archive, label)
             return
@@ -104,12 +106,13 @@ class TaxonomyPackages:
             data = self._read(archive, info.filename, label)
             try:
                 nested = ZipFile(io.BytesIO(data))
-            except BadZipFile as error:
+            except ZIP_ERRORS as error:
                 raise ReportError(
                     f"{inner_label}: not a readable taxonomy package ZIP ({error})"
                 ) from error
             self._archives.append(nested)
             self._labels.append(inner_label)
+            self._check_entries(nested, inner_label)
             if not self._catalogs(nested):
                 raise ReportError(
                     f"{inner_label}: taxonomy package has no META-INF/catalog.xml"
@@ -142,6 +145,27 @@ class TaxonomyPackages:
                     )
                 )
 
+    def _check_entries(self, archive: ZipFile, label: str) -> None:
+        count = len(archive.infolist())
+        if count > self._limits.max_taxonomy_entries:
+            raise ReportError(
+                f"{label}: {count} ZIP entries exceed the limit of "
+                f"{self._limits.max_taxonomy_entries} for a taxonomy package"
+            )
+
+    def _count(self, size: int, label: str) -> None:
+        """Add bytes read from the packages to the total, within the limit.
+
+        Raises:
+            ReportError: If the bytes read exceed ``Limits.max_total_size``.
+        """
+        self._total += size
+        if self._total > self._limits.max_total_size:
+            raise ReportError(
+                f"{label}: files read from the taxonomy packages exceed the "
+                f"total size limit of {self._limits.max_total_size} bytes"
+            )
+
     def _read(self, archive: ZipFile, name: str, label: str) -> bytes:
         info = archive.getinfo(name)
         if info.file_size > self._limits.max_file_size:
@@ -149,10 +173,10 @@ class TaxonomyPackages:
                 f"{label}: {name} exceeds the maximum file size of "
                 f"{self._limits.max_file_size} bytes"
             )
+        self._count(info.file_size, label)
         try:
             return archive.read(info)
-        except (*DAMAGED_ENTRY_ERRORS, RuntimeError) as error:
-            # RuntimeError: an encrypted entry.
+        except ZIP_ERRORS as error:
             raise DamagedEntryError(label, name, error) from error
 
     def resolve(self, url: str) -> bytes | None:
@@ -197,10 +221,11 @@ class TaxonomyPackages:
                 for info in archive.infolist():
                     if not info.filename.endswith(".xsd") or info.is_dir():
                         continue
+                    self._count(min(info.file_size, _HEAD), self._labels[index])
                     try:
                         with archive.open(info) as stream:
                             head = stream.read(_HEAD)
-                    except (*DAMAGED_ENTRY_ERRORS, RuntimeError):
+                    except ZIP_ERRORS:
                         continue
                     match = _TARGET_NAMESPACE.search(head)
                     if match:

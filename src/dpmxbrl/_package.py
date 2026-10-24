@@ -18,6 +18,7 @@ from zipfile import (
     BadZipFile,
     ZipFile,
     ZipInfo,
+    is_zipfile,
 )
 
 from .model import Limits, ReportError
@@ -38,10 +39,34 @@ _DRIVE = re.compile(r"^[A-Za-z]:")
 # A ZIP local file header: signature, then the name and extra field lengths.
 _LOCAL_HEADER = struct.Struct("<4s22xHH")
 _LOCAL_SIGNATURE = b"PK\x03\x04"
-# What zipfile raises for an entry whose compressed data is damaged or whose
-# compression method it cannot read.
-DAMAGED_ENTRY_ERRORS = (BadZipFile, EOFError, zlib.error, NotImplementedError)
+ZIP_ERRORS: tuple[type[Exception], ...] = (
+    BadZipFile,
+    OSError,
+    ValueError,
+    EOFError,
+    NotImplementedError,
+    UnicodeDecodeError,
+    zlib.error,
+    RuntimeError,
+    *_FAST_ZLIB_ERRORS,
+)
+"""What zipfile raises for a damaged archive or entry: a bad directory,
+damaged compressed data, an unknown compression method or version, an
+encrypted entry, an undecodable name or an impossible offset."""
+DAMAGED_ENTRY_ERRORS = ZIP_ERRORS
 _COMPRESSION_METHODS = frozenset({ZIP_STORED, ZIP_DEFLATED, ZIP_BZIP2, ZIP_LZMA})
+
+
+def is_zip(source: IO[bytes] | Path) -> bool:
+    """Whether the input has a ZIP directory; a damaged one is not a ZIP.
+
+    Returns:
+        bool: What ``zipfile.is_zipfile`` says, or ``False`` if it fails.
+    """
+    try:
+        return is_zipfile(source)
+    except ZIP_ERRORS:
+        return False
 
 
 class DamagedEntryError(ReportError):
@@ -121,11 +146,15 @@ class Package:
 
         Raises:
             ReportError: If the file is missing or exceeds the size limit.
+            DamagedEntryError: If the entry's header cannot be read.
         """
         if name not in self._name_set:
             raise ReportError(f"{self.label}: missing file {name!r}")
         if self._archive is not None:
-            return self._archive.open(name)
+            try:
+                return self._archive.open(name)
+            except ZIP_ERRORS as error:
+                raise DamagedEntryError(self.label, name, error) from error
         assert self._root is not None
         path = self._root / name
         try:
@@ -153,7 +182,10 @@ class Package:
             DamagedEntryError: If the file's compressed data is damaged.
         """
         if self._archive is not None and name in self._name_set:
-            data = self._inflate(self._archive.getinfo(name))
+            try:
+                data = self._inflate(self._archive.getinfo(name))
+            except ZIP_ERRORS as error:
+                raise DamagedEntryError(self.label, name, error) from error
             if data is not None:
                 return data
         with self.open(name) as stream:
@@ -214,7 +246,7 @@ def open_zip_package(source: bytes | Path, *, label: str, limits: Limits) -> Pac
     """
     try:
         archive = ZipFile(io.BytesIO(source) if isinstance(source, bytes) else source)
-    except (BadZipFile, OSError) as error:
+    except ZIP_ERRORS as error:
         raise ReportError(f"{label}: not a readable ZIP archive ({error})") from error
     try:
         names = _validate_entries(archive.infolist(), label=label, limits=limits)

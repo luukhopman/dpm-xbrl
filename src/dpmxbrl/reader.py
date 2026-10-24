@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import io
 import os
-import zipfile
 from collections.abc import Sequence
 from pathlib import Path
 
+from ._package import is_zip
 from .csv_reader import MetadataResolver, read_xbrl_csv
 from .model import Limits, Report, ReportError, ReportFormat
 from .xml_reader import read_xbrl_xml
@@ -42,7 +42,7 @@ def detect_format(
         ('xbrl-csv', 'xbrl-xml')
     """
     if isinstance(source, bytes):
-        if zipfile.is_zipfile(io.BytesIO(source)):
+        if is_zip(io.BytesIO(source)):
             return "xbrl-csv"
         if source.startswith(_ZIP_SIGNATURE):
             raise ReportError(_DAMAGED_ZIP.format(name=name or "the report"))
@@ -52,7 +52,7 @@ def detect_format(
         return "xbrl-csv"
     if not path.is_file():
         raise ReportError(f"{path}: no such file or directory")
-    if path.suffix.casefold() == ".json" or zipfile.is_zipfile(path):
+    if path.suffix.casefold() == ".json" or is_zip(path):
         return "xbrl-csv"
     try:
         with path.open("rb") as handle:

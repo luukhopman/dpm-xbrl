@@ -6,8 +6,9 @@ from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
 import pytest
 
-from dpmxbrl import Limits, ReportError, _package
+from dpmxbrl import Limits, ReportError, _package, read_report
 from dpmxbrl._package import open_zip_package
+from tests.support import write_zip
 
 pytest.importorskip("isal")
 
@@ -92,3 +93,65 @@ def test_entries_are_never_inflated_past_their_declared_size() -> None:
         assert package._inflate(info) is None
         with pytest.raises(ReportError, match="is damaged"):
             package.read("report/reports/t.csv")
+
+
+def _patch_central_directory(data: bytes, offset: int, value: bytes) -> bytes:
+    """Overwrite a field of every central directory header of a ZIP."""
+    patched = bytearray(data)
+    position = patched.find(b"PK\x01\x02")
+    while position >= 0:
+        patched[position + offset : position + offset + len(value)] = value
+        position = patched.find(b"PK\x01\x02", position + 4)
+    return bytes(patched)
+
+
+def test_unreadable_zip_entries_raise_report_error(tmp_path: Path) -> None:
+    from tests.support import closed_files, zip_bytes
+
+    # Version needed to extract 9.9: zipfile raises NotImplementedError.
+    data = _patch_central_directory(
+        zip_bytes(closed_files(), root="report/"), 6, b"\x63\x00"
+    )
+    with pytest.raises(ReportError, match=r"zip file version 9\.9"):
+        read_report(data)
+    # A local header offset past the end: zipfile seeks out of range.
+    data = _patch_central_directory(
+        zip_bytes(closed_files(), root="report/"), 42, b"\xff\xff\xff\x7f"
+    )
+    with pytest.raises(ReportError):
+        read_report(data)
+
+
+def test_unreadable_taxonomy_zip_raises_report_error(tmp_path: Path) -> None:
+    from tests.support import metadata_files, taxonomy_package
+
+    report = write_zip(tmp_path / "r.zip", metadata_files())
+    package = taxonomy_package(tmp_path / "t.zip", full=True)
+    damaged = tmp_path / "damaged.zip"
+    damaged.write_bytes(_patch_central_directory(package.read_bytes(), 6, b"\x63\x00"))
+    with pytest.raises(ReportError, match=r"zip file version 9\.9"):
+        read_report(report, taxonomy_packages=[damaged])
+    outer = tmp_path / "outer.zip"
+    with ZipFile(outer, "w") as archive:
+        archive.writestr("inner.zip", damaged.read_bytes())
+    with pytest.raises(ReportError, match=r"outer\.zip!inner\.zip"):
+        read_report(report, taxonomy_packages=[outer])
+
+
+def test_taxonomy_zips_are_limited(tmp_path: Path) -> None:
+    from tests.support import metadata_files, taxonomy_package
+
+    report = write_zip(tmp_path / "r.zip", metadata_files())
+    package = taxonomy_package(tmp_path / "t.zip", full=True)
+    with pytest.raises(ReportError, match="ZIP entries exceed the limit of 3"):
+        read_report(
+            report,
+            taxonomy_packages=[package],
+            limits=Limits(max_taxonomy_entries=3),
+        )
+    with pytest.raises(ReportError, match="files read from the taxonomy packages"):
+        read_report(
+            report,
+            taxonomy_packages=[package],
+            limits=Limits(max_total_size=5_000),
+        )

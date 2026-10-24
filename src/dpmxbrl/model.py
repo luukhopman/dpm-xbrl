@@ -59,6 +59,10 @@ class Limits:
             XBRL-XML instance document.
         max_facts: Maximum number of facts in one report.
         max_extends_depth: Maximum nesting depth of xBRL-CSV ``extends``.
+        max_taxonomy_entries: Maximum number of entries in one taxonomy
+            package ZIP; the EBA's reporting frameworks package has about
+            17,400. Files read from taxonomy packages also count towards
+            ``max_total_size``.
 
     Examples:
         >>> from dataclasses import replace
@@ -75,6 +79,7 @@ class Limits:
     max_file_size: int = 512 * 1024**2
     max_facts: int = 20_000_000
     max_extends_depth: int = 32
+    max_taxonomy_entries: int = 100_000
 
 
 @dataclass(frozen=True, slots=True)

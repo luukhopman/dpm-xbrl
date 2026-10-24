@@ -14,7 +14,6 @@ import io
 import os
 import posixpath
 import re
-import zipfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
@@ -27,6 +26,7 @@ from ._package import (
     DAMAGED_ENTRY_ERRORS,
     DamagedEntryError,
     Package,
+    is_zip,
     open_directory_package,
     open_zip_package,
 )
@@ -187,7 +187,7 @@ def _open_package(
                 package.close()
                 raise ReportError(f"{path}: report metadata not found")
             return package, path.name
-        elif path.is_file() and zipfile.is_zipfile(path):
+        elif path.is_file() and is_zip(path):
             package = open_zip_package(path, label=name or str(path), limits=limits)
             allow_bare = False
         elif path.exists():

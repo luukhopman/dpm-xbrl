@@ -63,6 +63,7 @@ upload form:
 | `max_file_size` | 512 MiB | uncompressed size of one file, including an XML instance and files read from taxonomy packages |
 | `max_facts` | 20,000,000 | facts in one report |
 | `max_extends_depth` | 32 | nesting of xBRL-CSV `extends` |
+| `max_taxonomy_entries` | 100,000 | entries in one taxonomy package ZIP (the EBA's reporting frameworks package has about 17,400) |
 
 Each limit raises `ReportError` when exceeded, before the data is inflated
 or the facts are built:

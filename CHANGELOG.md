@@ -47,6 +47,9 @@ All notable changes to this project are documented here. The project follows
 - `dpmxbrl.filing.CHECKED_RULES` lists the findings each reader can record,
   without and with taxonomy packages.
 - `SkippedFacts`, the type `write_xbrl_csv` returns.
+- `Limits.max_taxonomy_entries` bounds the entries of a taxonomy package
+  ZIP, and files read from taxonomy packages count towards
+  `Limits.max_total_size`.
 - `filing_indicator_code` maps a table template to its filing indicator.
 - `detect_format(..., name=...)` names the input in its errors.
 - The public API is documented: every name in the `__all__` of `dpmxbrl`,
