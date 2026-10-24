@@ -1064,7 +1064,7 @@ class _InstanceReader:
                 f"{len(dates)} ({shown}).",
                 self._label,
             )
-        for context_id in self._contexts.keys() - used_contexts:
+        for context_id in [c for c in self._contexts if c not in used_contexts]:
             self._filing.add(
                 "2.7",
                 "unusedContext",
@@ -1072,7 +1072,7 @@ class _InstanceReader:
                 "The report should not contain contexts that no fact uses.",
                 f"{self._label}#{context_id}",
             )
-        for unit_id in self._units.keys() - used_units:
+        for unit_id in [u for u in self._units if u not in used_units]:
             self._filing.add(
                 "2.22",
                 "unusedUnit",
