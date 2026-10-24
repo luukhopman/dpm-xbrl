@@ -129,6 +129,12 @@ def test_doctype_is_rejected_in_utf16_without_bom(encoding: str) -> None:
         read_xbrl_xml(text.encode(encoding))
 
 
+@pytest.mark.parametrize("encoding", ["utf-16", "utf-16-le"])
+def test_utf16_breaks_the_encoding_rule(encoding: str) -> None:
+    report = read_xbrl_xml((ROOT_OPEN + "</xbrli:xbrl>").encode(encoding))
+    assert "1.4" in {finding.rule for finding in report.filing}
+
+
 def test_multiple_periods_and_entities_break_filing_rules() -> None:
     data = _instance(
         _context("a"),

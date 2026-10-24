@@ -351,7 +351,7 @@ class _InstanceReader:
 
     def _check_declaration(self, head: bytes) -> None:
         """Check the XML declaration (rules 1.4 and 1.13)."""
-        if head.startswith((b"\xff\xfe", b"\xfe\xff")):
+        if head.startswith((b"\xff\xfe", b"\xfe\xff")) or b"\x00" in head[:2]:
             self._filing.add(
                 "1.4",
                 "encodingNotUtf8",
