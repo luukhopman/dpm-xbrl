@@ -181,10 +181,17 @@ def test_two_report_json_files_are_rejected() -> None:
             csv_text("name,value", "refPeriod,31-12-2024"),
             r"parameters\.csv:2: refPeriod '31-12-2024' is not a YYYY-MM-DD date",
         ),
-        (
-            "reports/parameters.csv",
-            csv_text("name,value", "refPeriod,2024-W01-1"),
-            r"refPeriod '2024-W01-1' is not a YYYY-MM-DD date",
+        *(
+            (
+                "reports/parameters.csv",
+                csv_text("name,value", f"refPeriod,{period}"),
+                f"refPeriod '{period}' is not a YYYY-MM-DD date",
+            )
+            for period in (
+                "2024-W01-1",
+                "2024-1231",
+                "\uff12\uff10\uff12\uff14-\uff11\uff12-\uff13\uff11",
+            )
         ),
         (
             "reports/report.json",

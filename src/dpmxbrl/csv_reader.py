@@ -64,8 +64,10 @@ _ENTITY_SCHEMES = {
     "lei": "http://standards.iso.org/iso/17442",
     "rs": "https://eurofiling.info/eu/rs",
 }
-_PLAIN_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
-_CALENDAR_DATE = re.compile(r"(\d{4})-?(\d{2})-?(\d{2})(?!\d)")
+_PLAIN_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+_CALENDAR_DATE = re.compile(
+    r"([0-9]{4})-([0-9]{2})-([0-9]{2})(?![0-9])|([0-9]{4})([0-9]{2})([0-9]{2})(?![0-9])"
+)
 _DECIMALS_SUFFIX = re.compile(r"[-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?d(?:[-+]?[0-9]+|INF)")
 """A value with the xBRL-CSV decimals suffix, such as ``78920030d-4``."""
 _LETTER_PART = re.compile(r"\.[a-z](?=\.|$)", re.IGNORECASE)
@@ -595,8 +597,9 @@ class _CsvReportReader:
         # which fromisoformat would also accept, are not.
         match = _CALENDAR_DATE.match(value.strip())
         if match:
+            parts = [int(part) for part in match.groups() if part is not None]
             with contextlib.suppress(ValueError):
-                return date(*map(int, match.groups()))
+                return date(*parts)
         raise ReportError(
             f"{lines.get('refPeriod', label)}: refPeriod {value!r} is not a "
             "YYYY-MM-DD date"
