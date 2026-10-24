@@ -305,6 +305,7 @@ def test_duplicates(tmp_path: Path) -> None:
                 "dp100,A,k1",
                 "dp100,A,k1",
                 "dp100,B,k1",
+                "dp100,B,k1",
                 "dp100,A,k2",
             )
         }
@@ -318,7 +319,7 @@ def test_duplicates(tmp_path: Path) -> None:
         ("A", "k2"),
     ]
     assert any(
-        "duplicate facts ignored (1 occurrence, first at reports/c_27.00.csv:3)"
+        "duplicate facts ignored (2 occurrences, first at reports/c_27.00.csv:3)"
         in warning
         for warning in report.warnings
     )

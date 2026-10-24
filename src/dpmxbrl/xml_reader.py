@@ -913,8 +913,9 @@ class _InstanceReader:
     ) -> None:
         """Find facts for the same data point (rules 2.16 and 2.16.1)."""
         key = (raw.concept, context.signature, raw.lang)
-        first = seen.setdefault(key, (unit, raw.location))
-        if first[1] == raw.location:
+        first = seen.get(key)
+        if first is None:
+            seen[key] = (unit, raw.location)
             return
         if first[0] == unit:
             self._filing.add(

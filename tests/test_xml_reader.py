@@ -268,3 +268,16 @@ def test_unreadable_encodings_raise_report_errors(encoding: str) -> None:
     data = f'<?xml version="1.0" encoding="{encoding}"?>{ROOT_OPEN}</xbrli:xbrl>'
     with pytest.raises(ReportError):
         read_xbrl_xml(data.encode())
+
+
+@pytest.mark.parametrize("ids", [("f1", "f1"), (None, "fact1")])
+def test_duplicates_are_found_whatever_the_fact_ids(
+    ids: tuple[str | None, str | None],
+) -> None:
+    facts = "".join(
+        f'<eba_met:ei1 contextRef="c1"{f" id={identifier!r}" if identifier else ""}>'
+        "x</eba_met:ei1>"
+        for identifier in ids
+    )
+    data = XML_INSTANCE.replace("</xbrli:xbrl>", facts + "</xbrli:xbrl>")
+    assert "2.16" in {item.rule for item in read_xbrl_xml(data.encode()).filing}

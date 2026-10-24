@@ -232,7 +232,7 @@ class _CsvReportReader:
         self._warnings = WarningLog()
         self._filing = FilingLog()
         self._facts: list[Fact] = []
-        self._seen: dict[tuple[Any, ...], str | None] = {}
+        self._seen: dict[tuple[Any, ...], str | set[str | None] | None] = {}
         self._namespaces: dict[str, str] = {}
         self._parameters: dict[str, str] = {}
         self._negative: set[str] = set()
@@ -775,17 +775,22 @@ class _CsvReportReader:
                 self._filing.add(*KEY_SPACES, location)
 
     def _emit(self, fact: Fact, key: tuple[Any, ...], display: str) -> None:
-        if key in self._seen:
-            if self._seen[key] == fact.value:
-                self._warnings.count(
-                    f"{display}: duplicate facts ignored", fact.location
-                )
-                return
+        # A key holds its value, or the set of values once they conflict.
+        if key not in self._seen:
+            self._seen[key] = fact.value
+        elif (values := self._seen[key]) == fact.value or (
+            isinstance(values, set) and fact.value in values
+        ):
+            self._warnings.count(f"{display}: duplicate facts ignored", fact.location)
+            return
+        else:
             self._warnings.count(
                 f"{display}: conflicting duplicate facts kept", fact.location
             )
-        else:
-            self._seen[key] = fact.value
+            if isinstance(values, set):
+                values.add(fact.value)
+            else:
+                self._seen[key] = {values, fact.value}
         if len(self._facts) >= self._limits.max_facts:
             raise ReportError(
                 f"{fact.location}: report exceeds the limit of "
