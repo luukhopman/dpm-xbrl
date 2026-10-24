@@ -38,7 +38,7 @@ not in an `__all__`. `dpmxbrl.__version__` gives the installed version.
 
 ## Python versions
 
-dpm-xbrl supports Python 3.11 to 3.14. Support for a Python version is
+dpm-xbrl supports Python 3.11 to 3.15. Support for a Python version is
 dropped only in a minor release, after its end of life.
 
 ## Dependencies
