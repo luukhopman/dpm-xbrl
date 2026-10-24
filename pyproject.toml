@@ -29,9 +29,15 @@ dependencies = []
 [dependency-groups]
 test = ["pytest"]
 lint = ["ruff", "ty"]
+docs = [
+    "zensical>=0.0.72,<0.1",
+    "mkdocstrings-python>=2.0.10,<3",
+    "polars>=2.0,<3",
+]
 dev = [
     { include-group = "test" },
     { include-group = "lint" },
+    { include-group = "docs" },
 ]
 
 [project.urls]
@@ -39,6 +45,7 @@ Homepage = "https://github.com/luukhopman/dpm-xbrl"
 Source = "https://github.com/luukhopman/dpm-xbrl"
 Issues = "https://github.com/luukhopman/dpm-xbrl/issues"
 Changelog = "https://github.com/luukhopman/dpm-xbrl/blob/main/CHANGELOG.md"
+Documentation = "https://luukhopman.github.io/dpm-xbrl/"
 
 [project.scripts]
 dpm-xbrl = "dpmxbrl.cli:main"
