@@ -130,8 +130,10 @@ dp100 {'c0010': 'cp2', 'c0020': 'eba_qCO:qx2001'} DEF
 A fact that no data point holds, or whose unit differs from `baseCurrency`
 or from its data point's, cannot be written exactly. By default it raises
 `ReportError`, whose [`problems`][dpmxbrl.ReportError] list every such
-fact; with `strict=False` it is left out and returned, with the reason, as
-[`SkippedFacts`][dpmxbrl.SkippedFacts]:
+fact; with `strict=False` it is left out and returned in
+[`SkippedFacts`][dpmxbrl.SkippedFacts], as a
+[`SkippedFact`][dpmxbrl.SkippedFact] with the reason and a stable code:
+`undeclaredPrefix`, `noDataPoint`, `unitMismatch` or `currencyMismatch`.
 
 ```python
 from dataclasses import replace
@@ -147,13 +149,14 @@ except ReportError as error:
 skipped = write_xbrl_csv(
     odd, "odd.zip", taxonomy_packages=["taxonomy.zip"], strict=False
 )
-print([(fact.location, reason) for fact, reason in skipped])
+for item in skipped:
+    print(item.fact.location, item.code, item.reason)
 write_xbrl_xml(odd, "odd.xbrl", taxonomy_packages=["taxonomy.zip"])
 ```
 
 ```text
 ('x#f9: no data point of corep_of.json has concept eba_met:mi53 with these dimensions',)
-[('x#f9', 'no data point of corep_of.json has concept eba_met:mi53 with these dimensions')]
+x#f9 noDataPoint no data point of corep_of.json has concept eba_met:mi53 with these dimensions
 ```
 
 From the command line, `--skip-unmapped` leaves such facts out and lists
@@ -166,7 +169,7 @@ $ echo $?
 1
 $ dpm-xbrl convert odd.xbrl odd.zip --taxonomy-package taxonomy.zip --skip-unmapped
 warning: 1 fact left out:
-  odd.xbrl#fact7: no data point of corep_of.json has concept eba_met:mi53 with these dimensions
+  odd.xbrl#fact7: no data point of corep_of.json has concept eba_met:mi53 with these dimensions (noDataPoint)
 ```
 
 For EBA reports, pass the release ZIP the EBA publishes, or its dictionary

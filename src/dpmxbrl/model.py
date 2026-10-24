@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 ReportFormat = Literal["xbrl-csv", "xbrl-xml"]
 Severity = Literal["error", "warning"]
@@ -287,5 +287,26 @@ def local_name(qname: str) -> str:
     return qname.partition(":")[2] or qname
 
 
-SkippedFacts = tuple[tuple[Fact, str], ...]
-"""Facts that ``write_xbrl_csv(..., strict=False)`` left out, each with why."""
+class SkippedFact(NamedTuple):
+    """A fact that ``write_xbrl_csv(..., strict=False)`` left out.
+
+    Attributes:
+        fact: The fact.
+        reason: Why, as a phrase such as ``its unit iso4217:USD differs from
+            baseCurrency iso4217:EUR, which the other facts use``; it may be
+            reworded.
+        code: Why, as a stable code: ``undeclaredPrefix`` (a prefix of its
+            concept or dimensions is not declared), ``noDataPoint`` (no data
+            point of the module has its concept and dimensions),
+            ``unitMismatch`` (its unit does not fit the data point) or
+            ``currencyMismatch`` (its unit differs from the ``baseCurrency``
+            the other facts use).
+    """
+
+    fact: Fact
+    reason: str
+    code: str
+
+
+SkippedFacts = tuple[SkippedFact, ...]
+"""The facts that ``write_xbrl_csv(..., strict=False)`` left out."""

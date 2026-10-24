@@ -17,6 +17,7 @@ from dpmxbrl import (
     Fact,
     Report,
     ReportError,
+    SkippedFact,
     read_report,
     write_xbrl_csv,
     write_xbrl_xml,
@@ -170,7 +171,11 @@ def test_unmapped_facts_raise_or_are_returned(
     skipped = write_xbrl_csv(
         report, tmp_path / "b.zip", taxonomy_packages=[package], strict=False
     )
-    assert [fact.location for fact, _ in skipped] == ["x#f9", "x#f10"]
+    assert [(item.fact.location, item.code) for item in skipped] == [
+        ("x#f9", "noDataPoint"),
+        ("x#f10", "currencyMismatch"),
+    ]
+    assert skipped[0] == SkippedFact(stray, skipped[0].reason, "noDataPoint")
     assert len(read_report(tmp_path / "b.zip").facts) == len(xml.facts)
 
 

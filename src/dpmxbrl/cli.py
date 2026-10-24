@@ -344,8 +344,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"{'' if len(skipped) == 1 else 's'} left out:",
                     file=sys.stderr,
                 )
-                for fact, reason in skipped:
-                    print(f"  {fact.location}: {reason}", file=sys.stderr)
+                for item in skipped:
+                    print(
+                        f"  {item.fact.location}: {item.reason} ({item.code})",
+                        file=sys.stderr,
+                    )
         else:
             write_xbrl_xml(
                 report,

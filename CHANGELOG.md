@@ -47,7 +47,8 @@ All notable changes to this project are documented here. The project follows
 - `dpmxbrl.filing.checked_rules(format, *, taxonomy, columnar)` gives the
   findings a reader can record in each mode, so callers can avoid
   reporting a rule twice.
-- `SkippedFacts`, the type `write_xbrl_csv` returns.
+- `SkippedFacts`, the type `write_xbrl_csv` returns: a tuple of
+  `SkippedFact(fact, reason, code)`, with stable codes.
 - `Limits.max_taxonomy_entries` bounds the entries of a taxonomy package
   ZIP, and files read from taxonomy packages count towards
   `Limits.max_total_size`.

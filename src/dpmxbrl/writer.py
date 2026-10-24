@@ -31,7 +31,7 @@ from ._module import (
 )
 from ._taxonomy import TaxonomyPackages
 from .csv_reader import XBRL_CSV_DOCUMENT_TYPE
-from .model import Fact, Limits, Report, ReportError, SkippedFacts
+from .model import Fact, Limits, Report, ReportError, SkippedFact, SkippedFacts
 from .xml_reader import FIND, ISO4217, LINK, XBRLDI, XBRLI, XLINK, XSI
 
 REPORT_PACKAGE_DOCUMENT_TYPE = "https://xbrl.org/report-package/2023"
@@ -229,8 +229,8 @@ def write_xbrl_csv(
         limits: Resource limits for reading the taxonomy packages.
 
     Returns:
-        SkippedFacts: The facts left out, each with the reason; always
-        empty when ``strict`` is true.
+        SkippedFacts: The facts left out, each a :class:`SkippedFact` with
+        the reason and its code; always empty when ``strict`` is true.
 
     Raises:
         ReportError: If a fact lacks a template or datapoint (without
@@ -399,7 +399,7 @@ def _place_facts(
     """
     names = Namespaces(report.namespaces, index.module.namespaces)
     result = _PlacedTables(index, names)
-    problems: list[tuple[Fact, str]] = []
+    problems: list[SkippedFact] = []
     placed: list[tuple[Fact, list[Placement], dict[str, Member]]] = []
     votes: dict[str, Counter[str]] = {}
     lowest: dict[str, float] = {}
@@ -413,22 +413,27 @@ def _place_facts(
         members = fact_members(fact, names, cache)
         if concept is None or members is None:
             problems.append(
-                (fact, "a prefix of its concept or dimensions is undeclared")
+                SkippedFact(
+                    fact,
+                    "a prefix of its concept or dimensions is undeclared",
+                    "undeclaredPrefix",
+                )
             )
             continue
         placements = index.find(concept, members)
         if not placements:
             problems.append(
-                (
+                SkippedFact(
                     fact,
                     f"no data point of {module_name} has concept {fact.concept} "
                     "with these dimensions",
+                    "noDataPoint",
                 )
             )
             continue
         problem = _unit_problem(fact, placements[0], names)
         if problem:
-            problems.append((fact, problem))
+            problems.append(SkippedFact(fact, problem, "unitMismatch"))
             continue
         placed.append((fact, placements, members))
         if fact.value is None:
@@ -460,7 +465,7 @@ def _place_facts(
     for fact, placements, members in placed:
         problem = _parameter_problem(fact, placements[0], names, result.parameters)
         if problem:
-            problems.append((fact, problem))
+            problems.append(SkippedFact(fact, problem, "currencyMismatch"))
             continue
         value = _encode_value(fact.value)
         if placements[0].enumeration and fact.value:
@@ -473,7 +478,7 @@ def _place_facts(
             )
             result.rows.setdefault(place.table, []).append(row)
     if problems and strict:
-        shown = [f"{fact.location or 'fact'}: {reason}" for fact, reason in problems]
+        shown = [f"{item.fact.location or 'fact'}: {item.reason}" for item in problems]
         raise ReportError(
             f"{len(problems)} fact{'' if len(problems) == 1 else 's'} cannot be "
             f"written as xBRL-CSV: {describe(shown, 3)}",

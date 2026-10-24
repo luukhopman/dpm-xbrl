@@ -34,6 +34,8 @@ works on its own input and returns immutable results. See
 
 ::: dpmxbrl.SkippedFacts
 
+::: dpmxbrl.SkippedFact
+
 ::: dpmxbrl.EntryPointWarning
 
 ## Model
