@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 from datetime import date
 from pathlib import Path
@@ -179,6 +180,16 @@ def test_two_report_json_files_are_rejected() -> None:
             "reports/parameters.csv",
             csv_text("name,value", "refPeriod,31-12-2024"),
             r"parameters\.csv:2: refPeriod '31-12-2024' is not a YYYY-MM-DD date",
+        ),
+        (
+            "reports/parameters.csv",
+            csv_text("name,value", "refPeriod,2024-W01-1"),
+            r"refPeriod '2024-W01-1' is not a YYYY-MM-DD date",
+        ),
+        (
+            "reports/report.json",
+            "[" * 100_000 + "]" * 100_000,
+            "nested too deeply",
         ),
         (
             "reports/parameters.csv",
@@ -450,6 +461,42 @@ def test_damaged_zip_entries_are_reported(damaged: str) -> None:
     data[position + 4] ^= 0xFF
     with pytest.raises(ReportError, match=f"{damaged} is damaged and cannot be read"):
         read_report(bytes(data), name="pkg.zip")
+
+
+def test_unsupported_compression_methods_are_rejected() -> None:
+    data = bytearray(zip_bytes(closed_files()))
+    # Mark one entry as Deflate64 in the local header and the central directory.
+    for signature, offset in ((b"PK\x03\x04", 8), (b"PK\x01\x02", 10)):
+        position = data.find(signature)
+        data[position + offset] = 9
+    with pytest.raises(ReportError, match="unsupported compression method 9"):
+        read_report(bytes(data))
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root")
+def test_unreadable_files_raise_report_errors(tmp_path: Path) -> None:
+    directory = write_directory(tmp_path / "d", closed_files())
+    table = directory / "reports" / "c_01.00.csv"
+    instance = tmp_path / "i.xbrl"
+    instance.write_text("<x/>")
+    table.chmod(0)
+    instance.chmod(0)
+    try:
+        with pytest.raises(ReportError, match="cannot be read"):
+            read_report(directory)
+        with pytest.raises(ReportError, match="cannot be read"):
+            read_report(instance)
+    finally:
+        table.chmod(0o644)
+        instance.chmod(0o644)
+
+
+def test_directory_links_leaving_the_package_are_rejected(tmp_path: Path) -> None:
+    directory = write_directory(tmp_path / "d", closed_files())
+    outside = write_directory(tmp_path / "outside", {"x.csv": "a,b\r\n"})
+    (directory / "reports" / "linked").symlink_to(outside)
+    with pytest.raises(ReportError, match="links outside the package"):
+        read_report(directory)
 
 
 def test_limits_are_enforced(tmp_path: Path) -> None:

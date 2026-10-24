@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
 
+from ._package import DAMAGED_ENTRY_ERRORS, DamagedEntryError
 from ._xmlsafe import parse_catalog_rewrites
 from .model import Limits, ReportError
 
@@ -69,7 +70,11 @@ class TaxonomyPackages:
                 f"{label}: {name} exceeds the maximum file size of "
                 f"{self._limits.max_file_size} bytes"
             )
-        return archive.read(info)
+        try:
+            return archive.read(info)
+        except (*DAMAGED_ENTRY_ERRORS, RuntimeError) as error:
+            # RuntimeError: an encrypted entry.
+            raise DamagedEntryError(label, name, error) from error
 
     def resolve(self, url: str) -> bytes | None:
         """Return the package file mapped to one absolute URL.

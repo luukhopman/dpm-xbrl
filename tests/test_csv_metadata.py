@@ -316,3 +316,25 @@ def test_taxonomy_package_errors(tmp_path: Path) -> None:
     )
     result = read_report(report, taxonomy_packages=[escaping])
     assert any("could not be resolved" in warning for warning in result.warnings)
+
+
+@pytest.mark.parametrize("properties_from", ["datapoint", [["datapoint"]]])
+def test_malformed_properties_from_is_rejected(
+    tmp_path: Path, properties_from: object
+) -> None:
+    template = {
+        "columns": {
+            "datapoint": {"propertyGroups": {}},
+            "factValue": {"propertiesFrom": properties_from},
+        }
+    }
+    files = closed_files(
+        **{
+            "reports/report.json": report_json(
+                tableTemplates={"c_01.00": template},
+                tables={"c_01.00": {"url": "c_01.00.csv"}},
+            )
+        }
+    )
+    with pytest.raises(ReportError, match="'propertiesFrom' must list column names"):
+        read_report(write_zip(tmp_path / "r.zip", files))

@@ -9,24 +9,24 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .csv_reader import MetadataResolver, read_xbrl_csv
-from .model import Limits, Report, ReportError
+from .model import Limits, Report, ReportError, ReportFormat
 from .xml_reader import read_xbrl_xml
 
 
-def detect_format(source: str | os.PathLike[str] | bytes) -> str:
+def detect_format(source: str | os.PathLike[str] | bytes) -> ReportFormat:
     """Detect whether input is an xBRL-CSV package or an XBRL-XML instance.
 
     ZIP archives, directories and ``.json`` metadata paths are xBRL-CSV;
     anything else is read as XBRL-XML.
 
     Returns:
-        str: ``"xbrl-csv"`` or ``"xbrl-xml"``.
+        ReportFormat: ``"xbrl-csv"`` or ``"xbrl-xml"``.
 
     Raises:
-        ReportError: If a path does not exist, or if a ``.zip`` file or one
-            starting like a ZIP archive cannot be read as one (it is
-            incomplete or damaged; reading it as XML would only report
-            malformed XML).
+        ReportError: If a path does not exist or cannot be read, or if a
+            ``.zip`` file or one starting like a ZIP archive cannot be read as
+            one (it is incomplete or damaged; reading it as XML would only
+            report malformed XML).
     """
     if isinstance(source, bytes):
         if zipfile.is_zipfile(io.BytesIO(source)):
@@ -41,8 +41,11 @@ def detect_format(source: str | os.PathLike[str] | bytes) -> str:
         raise ReportError(f"{path}: no such file or directory")
     if path.suffix.casefold() == ".json" or zipfile.is_zipfile(path):
         return "xbrl-csv"
-    with path.open("rb") as handle:
-        zip_like = handle.read(len(_ZIP_SIGNATURE)) == _ZIP_SIGNATURE
+    try:
+        with path.open("rb") as handle:
+            zip_like = handle.read(len(_ZIP_SIGNATURE)) == _ZIP_SIGNATURE
+    except OSError as error:
+        raise ReportError(f"{path}: cannot be read ({error.strerror})") from error
     if zip_like or path.suffix.casefold() == ".zip":
         raise ReportError(_DAMAGED_ZIP.format(name=path.name))
     return "xbrl-xml"

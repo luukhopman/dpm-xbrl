@@ -8,6 +8,7 @@ rules the instance breaks (see :mod:`dpmxbrl.filing`).
 
 from __future__ import annotations
 
+import contextlib
 import io
 import os
 import re
@@ -149,13 +150,18 @@ def read_xbrl_xml(
     label = name or path.name
     if not path.is_file():
         raise ReportError(f"{path}: no such file")
-    if path.stat().st_size > limits.max_file_size:
-        raise ReportError(
-            f"{label}: exceeds the maximum file size of {limits.max_file_size} bytes"
-        )
-    with path.open("rb") as stream:
-        head = check_prolog(stream.read, label)
-    with path.open("rb") as stream, gc_paused():
+    try:
+        if path.stat().st_size > limits.max_file_size:
+            raise ReportError(
+                f"{label}: exceeds the maximum file size of "
+                f"{limits.max_file_size} bytes"
+            )
+        with path.open("rb") as stream:
+            head = check_prolog(stream.read, label)
+        stream = path.open("rb")
+    except OSError as error:
+        raise ReportError(f"{label}: cannot be read ({error.strerror})") from error
+    with stream, gc_paused():
         return _InstanceReader(label, limits, head, file_name=label).read(stream)
 
 
@@ -343,6 +349,11 @@ class _InstanceReader:
             raise ReportError(
                 f"{self._label}:{line}:{column}: malformed XML ({error})"
             ) from error
+        except ReportError:
+            raise
+        except (LookupError, ValueError) as error:
+            # An unknown or multi-byte encoding in the XML declaration.
+            raise ReportError(f"{self._label}: unreadable XML ({error})") from error
         return self._report()
 
     def _where(self, element: ET.Element) -> str:
@@ -582,12 +593,14 @@ class _InstanceReader:
         period = builder.instant or builder.end
         reference_date = None
         if period:
-            try:
-                reference_date = date.fromisoformat(period[:10])
-            except ValueError as error:
+            # fromisoformat alone would also accept 20241231 and week dates.
+            if _PLAIN_DATE.fullmatch(period.strip()[:10]):
+                with contextlib.suppress(ValueError):
+                    reference_date = date.fromisoformat(period.strip()[:10])
+            if reference_date is None:
                 raise ReportError(
                     f"{self._label}: context {context_id} has invalid period {period!r}"
-                ) from error
+                )
         self._check_context(builder, f"{self._label}#{context_id}")
         content = (
             builder.scheme,

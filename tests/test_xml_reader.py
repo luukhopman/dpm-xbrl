@@ -261,3 +261,10 @@ def test_contexts_without_facts_still_give_entity_and_period() -> None:
     report = read_xbrl_xml(_instance(_context()))
     assert (report.entity_id, report.reference_date) == ("E", date(2024, 12, 31))
     assert report.base_currency is None
+
+
+@pytest.mark.parametrize("encoding", ["foo", "utf-32", "shift_jis"])
+def test_unreadable_encodings_raise_report_errors(encoding: str) -> None:
+    data = f'<?xml version="1.0" encoding="{encoding}"?>{ROOT_OPEN}</xbrli:xbrl>'
+    with pytest.raises(ReportError):
+        read_xbrl_xml(data.encode())

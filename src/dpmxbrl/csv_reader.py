@@ -8,6 +8,7 @@ concepts, dimensions, units and decimals.
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 import os
@@ -64,6 +65,7 @@ _ENTITY_SCHEMES = {
     "rs": "https://eurofiling.info/eu/rs",
 }
 _PLAIN_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_CALENDAR_DATE = re.compile(r"(\d{4})-?(\d{2})-?(\d{2})(?!\d)")
 _DECIMALS_SUFFIX = re.compile(r"[-+]?[0-9.]+(?:[eE][-+]?[0-9]+)?d(?:[-+]?[0-9]+|INF)")
 """A value with the xBRL-CSV decimals suffix, such as ``78920030d-4``."""
 _LETTER_PART = re.compile(r"\.[a-z](?=\.|$)", re.IGNORECASE)
@@ -585,13 +587,16 @@ class _CsvReportReader:
                 "time zone.",
                 f"{lines.get('refPeriod', label)}: {value}",
             )
-        try:
-            return date.fromisoformat(value.strip()[:10])
-        except ValueError as error:
-            raise ReportError(
-                f"{lines.get('refPeriod', label)}: refPeriod {value!r} is not a "
-                "YYYY-MM-DD date"
-            ) from error
+        # A basic-format date (20241231) is read; week and ordinal dates,
+        # which fromisoformat would also accept, are not.
+        match = _CALENDAR_DATE.match(value.strip())
+        if match:
+            with contextlib.suppress(ValueError):
+                return date(*map(int, match.groups()))
+        raise ReportError(
+            f"{lines.get('refPeriod', label)}: refPeriod {value!r} is not a "
+            "YYYY-MM-DD date"
+        )
 
     def _decimals_parameters(
         self, lines: Mapping[str, str], label: str
@@ -876,6 +881,13 @@ class _CsvReportReader:
                     f"{display}: column {column!r} 'dimensions' must be an object"
                 )
             properties_from = definition.get("propertiesFrom") or []
+            if not isinstance(properties_from, list) or not all(
+                isinstance(source, str) for source in properties_from
+            ):
+                raise ReportError(
+                    f"{display}: column {column!r} 'propertiesFrom' must list "
+                    "column names"
+                )
             group_columns = tuple(
                 (groups[source], columns[source]["propertyGroups"])
                 for source in properties_from

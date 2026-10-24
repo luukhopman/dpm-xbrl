@@ -10,7 +10,15 @@ import zlib
 from pathlib import Path
 from types import TracebackType
 from typing import IO, cast
-from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
+from zipfile import (
+    ZIP_BZIP2,
+    ZIP_DEFLATED,
+    ZIP_LZMA,
+    ZIP_STORED,
+    BadZipFile,
+    ZipFile,
+    ZipInfo,
+)
 
 from .model import Limits, ReportError
 
@@ -30,8 +38,10 @@ _DRIVE = re.compile(r"^[A-Za-z]:")
 # A ZIP local file header: signature, then the name and extra field lengths.
 _LOCAL_HEADER = struct.Struct("<4s22xHH")
 _LOCAL_SIGNATURE = b"PK\x03\x04"
-# What zipfile raises for an entry whose compressed data is damaged.
-DAMAGED_ENTRY_ERRORS = (BadZipFile, EOFError, zlib.error)
+# What zipfile raises for an entry whose compressed data is damaged or whose
+# compression method it cannot read.
+DAMAGED_ENTRY_ERRORS = (BadZipFile, EOFError, zlib.error, NotImplementedError)
+_COMPRESSION_METHODS = frozenset({ZIP_STORED, ZIP_DEFLATED, ZIP_BZIP2, ZIP_LZMA})
 
 
 class DamagedEntryError(ReportError):
@@ -118,12 +128,20 @@ class Package:
             return self._archive.open(name)
         assert self._root is not None
         path = self._root / name
-        if path.stat().st_size > self._limits.max_file_size:
+        try:
+            # Checked again: the file may have changed since it was listed.
+            if not path.resolve().is_relative_to(self._root.resolve()):
+                raise ReportError(f"{self.label}: {name} links outside the package")
+            if path.stat().st_size > self._limits.max_file_size:
+                raise ReportError(
+                    f"{self.label}: {name} exceeds the maximum file size of "
+                    f"{self._limits.max_file_size} bytes"
+                )
+            return path.open("rb")
+        except OSError as error:
             raise ReportError(
-                f"{self.label}: {name} exceeds the maximum file size of "
-                f"{self._limits.max_file_size} bytes"
-            )
-        return path.open("rb")
+                f"{self.label}: {name} cannot be read ({error.strerror})"
+            ) from error
 
     def read(self, name: str) -> bytes:
         """Read one package file completely.
@@ -222,6 +240,11 @@ def _validate_entries(
         check_member_name(name, label)
         if info.flag_bits & 0x1:
             raise ReportError(f"{label}: encrypted entry {name!r} is not supported")
+        if info.compress_type not in _COMPRESSION_METHODS:
+            raise ReportError(
+                f"{label}: entry {name!r} uses unsupported compression method "
+                f"{info.compress_type}"
+            )
         key = name.rstrip("/")
         if key in seen:
             raise ReportError(f"{label}: duplicate entry {name!r}")
@@ -255,7 +278,13 @@ def open_directory_package(root: Path, *, limits: Limits) -> Package:
     resolved_root = root.resolve()
     names: list[str] = []
     total = 0
-    for directory, _, files in os.walk(root):
+    for directory, subdirectories, files in os.walk(root):
+        for subdirectory in subdirectories:
+            # os.walk does not descend into linked directories; one that
+            # leaves the package is rejected like a linked file.
+            path = Path(directory) / subdirectory
+            if path.is_symlink() and not path.resolve().is_relative_to(resolved_root):
+                raise ReportError(f"{root}: {path} links outside the package")
         for file_name in files:
             path = Path(directory) / file_name
             if not path.resolve().is_relative_to(resolved_root):

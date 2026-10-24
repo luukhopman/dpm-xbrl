@@ -120,6 +120,8 @@ def load_json_object(data: bytes, label: str) -> dict[str, Any]:
         ) from error
     except ValueError as error:
         raise ReportError(f"{label}: invalid JSON ({error})") from error
+    except RecursionError as error:
+        raise ReportError(f"{label}: invalid JSON (nested too deeply)") from error
     if not isinstance(value, dict):
         raise ReportError(f"{label}: expected a JSON object")
     return value
