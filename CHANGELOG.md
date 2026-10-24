@@ -30,6 +30,20 @@ All notable changes to this project are documented here. The project follows
   needs `read_xbrl_csv`, so callers need not match the message.
 - `write_xbrl_xml` and `convert --typed-domain` accept a typed domain element
   in Clark notation, `{namespace}local`, and declare its namespace.
+- `write_xbrl_csv(..., taxonomy_packages=...)` and `convert --taxonomy-package`
+  convert XBRL-XML to xBRL-CSV: facts go in the module's table rows by concept
+  and dimensions. Facts that cannot be placed raise `ReportError`, or are left
+  out and returned with `strict=False` (`convert --skip-unmapped`).
+- `write_xbrl_xml(..., taxonomy_packages=...)` takes typed domains from the
+  dimension schemas, so `convert` needs no `--typed-domain` for EBA packages.
+- `read_xbrl_xml` takes `taxonomy_packages`, and both readers check with them
+  the entry point and the module's reference dates (1.5), filing indicator
+  codes (1.6, 1.6.3), percentages above 50 (3.2) and, for XML, canonical
+  namespace prefixes (3.5).
+- xBRL-CSV packages with files outside the EBA layout break the `Package`
+  rule (`unexpectedFile`, a warning).
+- `ReportError.problems` lists every problem; reading xBRL-CSV tables
+  collects up to 100 row-length, quoting and header problems before failing.
 - The public API is documented: every name in the `__all__` of `dpmxbrl`,
   `dpmxbrl.filing` and `dpmxbrl.frames`, and how table codes map to filing
   indicators.
@@ -43,6 +57,9 @@ All notable changes to this project are documented here. The project follows
 - `inspect` no longer prints a `(none)` per-template row for XML reports,
   whose facts have no template.
 - `detect_format` is annotated to return `ReportFormat`.
+- `write_xbrl_xml` declares only the prefixes the instance uses, writes a
+  fact repeated in several xBRL-CSV tables once, and gives numeric facts
+  without a unit `xbrli:pure`.
 
 ### Fixed
 
