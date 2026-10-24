@@ -632,3 +632,44 @@ def test_non_string_data_point_type_is_ignored(
         lambda d: _group(d).update({"eba:documentation": {"type": ["e"]}}),
     )
     assert write_xbrl_csv(xml, tmp_path / "out.zip", taxonomy_packages=[bad]) == ()
+
+
+_BAD_URL = "http://[::1/x"
+
+
+def test_malformed_urls_are_unresolvable(
+    tmp_path: Path, csv_report: Report, package: Path
+) -> None:
+    import json
+
+    xml = _as_xml(csv_report, package)
+    bad_entry = replace(xml, entry_point=f"{_BAD_URL}.xsd")
+    buffer = io.BytesIO()
+    write_xbrl_xml(bad_entry, buffer, taxonomy_packages=[package])
+    found = _findings(read_report(buffer.getvalue(), taxonomy_packages=[package]))
+    assert ("1.5", "inappropriateSchemaRef") in found
+    with pytest.raises(ReportError, match="no xBRL-CSV entry point"):
+        write_xbrl_csv(bad_entry, tmp_path / "a.zip", taxonomy_packages=[package])
+
+    files = metadata_files()
+    files["reports/report.json"] = json.dumps(
+        {
+            "documentInfo": {
+                "documentType": "https://xbrl.org/2021/xbrl-csv",
+                "extends": [f"{_BAD_URL}.json"],
+            }
+        }
+    )
+    report = read_report(
+        write_zip(tmp_path / "r.zip", files), taxonomy_packages=[package]
+    )
+    assert any(
+        "could not be resolved offline" in warning for warning in report.warnings
+    )
+
+    module = _taxonomy_with(
+        tmp_path,
+        _MODULE_PATH,
+        lambda d: d["documentInfo"]["extends"].append(f"{_BAD_URL}.json"),
+    )
+    assert write_xbrl_csv(xml, tmp_path / "b.zip", taxonomy_packages=[module]) == ()

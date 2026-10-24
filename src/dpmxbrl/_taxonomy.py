@@ -8,10 +8,10 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import urljoin
 from zipfile import BadZipFile, ZipFile
 
 from ._package import DAMAGED_ENTRY_ERRORS, DamagedEntryError
+from ._util import join_url
 from ._xmlsafe import parse_catalog_rewrites, parse_entry_points, parse_schema
 from .model import Limits, ReportError
 
@@ -287,7 +287,8 @@ class TaxonomyPackages:
                     )
                     break
         elif href:
-            target = (index, posixpath.normpath(urljoin(name, href)))
+            joined = join_url(name, href)
+            target = None if joined is None else (index, posixpath.normpath(joined))
         else:
             target = schema.location
         domain = self._schema_at(target) if target else None

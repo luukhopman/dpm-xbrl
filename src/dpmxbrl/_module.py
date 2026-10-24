@@ -15,10 +15,9 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
-from urllib.parse import urljoin, urlsplit
 
 from ._taxonomy import TaxonomyPackages
-from ._util import load_json_object
+from ._util import join_url, load_json_object
 from .model import Fact, Limits, ReportError
 
 _IGNORED_DIMENSIONS = frozenset({"period", "entity", "language", "noteId"})
@@ -36,9 +35,9 @@ def module_json_url(entry_point: str) -> str:
     Returns:
         str: The URL with a ``.json`` suffix, as the EBA publishes both.
     """
-    extension = posixpath.splitext(urlsplit(entry_point).path)[1]
-    if extension.casefold() == ".xsd" and entry_point.endswith(extension):
-        return entry_point[: -len(extension)] + ".json"
+    stem, extension = posixpath.splitext(entry_point)
+    if extension.casefold() == ".xsd":
+        return stem + ".json"
     return entry_point
 
 
@@ -165,8 +164,8 @@ def _collect(
     for reference in extends:
         if not isinstance(reference, str):
             raise ReportError(f"{url}: 'documentInfo.extends' must list URLs")
-        target = urljoin(url, reference)
-        if target in loaded:
+        target = join_url(url, reference)
+        if target is None or target in loaded:
             continue
         if depth + 1 > limits.max_extends_depth:
             raise ReportError(

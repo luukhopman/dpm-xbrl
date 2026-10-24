@@ -9,6 +9,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, NoReturn
+from urllib.parse import urljoin, urlsplit
 
 from .model import ReportError
 
@@ -148,3 +149,28 @@ def load_json_object(data: bytes, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ReportError(f"{label}: expected a JSON object")
     return value
+
+
+def url_scheme(url: str) -> str | None:
+    """Return a URL's scheme, ``""`` for a relative reference.
+
+    Returns:
+        str | None: The scheme, or ``None`` if the URL cannot be parsed, such
+        as ``http://[::1`` with an unclosed IPv6 address.
+    """
+    try:
+        return urlsplit(url).scheme
+    except ValueError:
+        return None
+
+
+def join_url(base: str, url: str) -> str | None:
+    """Resolve a reference against a base URL.
+
+    Returns:
+        str | None: The absolute URL, or ``None`` if either cannot be parsed.
+    """
+    try:
+        return urljoin(base, url)
+    except ValueError:
+        return None

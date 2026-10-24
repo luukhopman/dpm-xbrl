@@ -20,7 +20,6 @@ from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlsplit
 
 from ._checks import check_with_taxonomy
 from ._module import ModuleMetadata
@@ -32,7 +31,14 @@ from ._package import (
     open_zip_package,
 )
 from ._taxonomy import TaxonomyPackages
-from ._util import EMPTY_MAPPING, WarningLog, gc_paused, load_json_object
+from ._util import (
+    EMPTY_MAPPING,
+    WarningLog,
+    gc_paused,
+    join_url,
+    load_json_object,
+    url_scheme,
+)
 from .filing import (
     DECIMALS_SUFFIX,
     EMPTY_VALUE,
@@ -266,7 +272,7 @@ class _CsvReportReader:
         return name.removeprefix(self._root_prefix)
 
     def _local(self, url: str) -> str | None:
-        if urlsplit(url).scheme or url.startswith("/"):
+        if url_scheme(url) != "" or url.startswith("/"):
             return None
         path = posixpath.normpath(posixpath.join(self._reports_dir, url))
         return None if path == ".." or path.startswith("../") else path
@@ -513,10 +519,14 @@ class _CsvReportReader:
         self._merge(document, label, metadata)
 
     def _resolve_ref(self, base: _Ref, url: str) -> _Ref | None:
-        if urlsplit(url).scheme:
+        scheme = url_scheme(url)
+        if scheme is None:
+            return None
+        if scheme:
             return ("url", url)
         if base[0] == "url":
-            return ("url", urljoin(base[1], url))
+            joined = join_url(base[1], url)
+            return None if joined is None else ("url", joined)
         if url.startswith("/"):
             return None
         path = posixpath.normpath(posixpath.join(posixpath.dirname(base[1]), url))
