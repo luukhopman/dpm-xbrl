@@ -98,12 +98,21 @@ class ModuleMetadata:
 
 
 def _date(value: object) -> date | None:
+    """Parse a documented reference date.
+
+    The EBA writes 9999-12-31 for modules without a set date (IF_TM in 4.2,
+    whose official samples are dated 2026), so it counts as unknown.
+
+    Returns:
+        date | None: The date, or ``None`` if absent, invalid or 9999-12-31.
+    """
     if not isinstance(value, str) or not value:
         return None
     try:
-        return date.fromisoformat(value[:10])
+        parsed = date.fromisoformat(value[:10])
     except ValueError:
         return None
+    return None if parsed == date.max else parsed
 
 
 def load_module(
