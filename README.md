@@ -2,16 +2,18 @@
   <a href="https://luukhopman.github.io/dpm-xbrl/"><img src="https://luukhopman.github.io/dpm-xbrl/assets/logo.svg" alt="dpm-xbrl" width="240"></a>
 </p>
 
-# dpm-xbrl
+<p align="center"><em>Read, write and check EBA xBRL-CSV and XBRL-XML reports in Python.</em></p>
 
 Read and write EBA-style regulatory XBRL reports in both serializations,
 xBRL-CSV report packages and XBRL 2.1 XML instances, through one neutral
 fact model, and find the EBA filing rules a report breaks. It targets
 reports built on the data point model (DPM) taxonomies of the European
-Banking Authority and is tested on EBA reports. It is an independent
-project, not affiliated with or endorsed by the EBA.
+Banking Authority and is tested on EBA reports.
 
-**Documentation: <https://luukhopman.github.io/dpm-xbrl/>**
+dpm-xbrl is an independent project, not affiliated with or endorsed by the
+European Banking Authority.
+
+## Installation
 
 ```text
 pip install dpm-xbrl            # standard library only, Python 3.11+
@@ -71,7 +73,23 @@ The sample `report.zip` is in
 - **Safe on untrusted input**: resource limits, ZIP and XML hardening, and
   one exception type, `ReportError`.
 
-## Learn more
+## Toolkit
+
+**Part of the dpm toolkit**, three Python packages that work together:
+
+| Package | What it does |
+| :-- | :-- |
+| <a href="https://luukhopman.github.io/dpm-xl/"><img src="https://luukhopman.github.io/dpm-xl/assets/logo.svg" alt="dpm-xl" height="32"></a> | Parse and evaluate DPM-XL validation rules |
+| <a href="https://luukhopman.github.io/dpm-xbrl/"><img src="https://luukhopman.github.io/dpm-xbrl/assets/logo.svg" alt="dpm-xbrl" height="32"></a> | Read, write and check xBRL-CSV and XBRL-XML reports **(this package)** |
+| <a href="https://luukhopman.github.io/dpm-synth/"><img src="https://luukhopman.github.io/dpm-synth/assets/logo.svg" alt="dpm-synth" height="32"></a> | Generate test reports that satisfy DPM-XL rules |
+
+The [toolkit tour](https://luukhopman.github.io/dpm-xl/guides/toolkit-tour/)
+takes one report through all three: generated with dpm-synth, read with
+dpm-xbrl, then evaluated and explained with dpm-xl.
+
+## Documentation
+
+**Documentation: <https://luukhopman.github.io/dpm-xbrl/>**
 
 - [Getting started](https://luukhopman.github.io/dpm-xbrl/getting-started/)
 - [How-to guides](https://luukhopman.github.io/dpm-xbrl/guides/): read a
@@ -102,4 +120,7 @@ uv run python scripts/build_docs.py
 ```
 
 See [contributing](https://luukhopman.github.io/dpm-xbrl/project/contributing/).
-Released under the MIT licence.
+
+## Licence
+
+MIT. See [LICENSE](https://github.com/luukhopman/dpm-xbrl/blob/main/LICENSE).

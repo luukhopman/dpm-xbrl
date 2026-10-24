@@ -10,14 +10,12 @@ one neutral fact model. While it reads, it records the
 [EBA Filing Rules][eba-filing-rules] that the report breaks and that the file
 alone can show.
 
+dpm-xbrl is an independent project, not affiliated with or endorsed by the
+European Banking Authority.
+
 It targets reports built on the data point model (DPM) taxonomies of the
 European Banking Authority and is tested on EBA reports. It uses only the
 standard library and needs Python 3.11 or newer.
-
-!!! note "Independent project"
-
-    dpm-xbrl is an independent project, not affiliated with or endorsed by
-    the EBA.
 
 ## Who it is for
 
@@ -101,6 +99,10 @@ The `fast` extra changes speed only; the bytes read are the same either way.
   [resolve metadata offline](guides/taxonomy-packages.md).
 - **Safe on untrusted input.** Resource limits, ZIP and XML hardening, and a
   single exception type; see [the security model](concepts/security.md).
+
+## Toolkit
+
+--8<-- "docs/.snippets/toolkit.md"
 
 ## Where next
 
