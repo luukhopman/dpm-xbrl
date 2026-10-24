@@ -255,15 +255,21 @@ class PlacementIndex:
         ] = {}
         self._terms: dict[tuple[str, object], tuple[str, Any, Any]] = {}
         self._by_names: dict[frozenset[str], list[frozenset[str]]] = {}
-        for table in module.tables.values():
+        for name, table in module.tables.items():
             if isinstance(table, dict):
-                self._add_table(table)
+                self._add_table(name, table)
 
-    def _add_table(self, table: Mapping[str, Any]) -> None:
+    def _add_table(self, name: str, table: Mapping[str, Any]) -> None:
         url = table.get("url")
-        template = self.module.table_templates.get(table.get("template"))
+        template_id = table.get("template", name)
+        if not isinstance(template_id, str):
+            raise ReportError(
+                f"{self.module.url}: the template of table {name} must be a string"
+            )
+        template = self.module.table_templates.get(template_id)
         if not isinstance(url, str) or not isinstance(template, dict):
             return
+        where = f"{self.module.url}: table template {template_id}"
         columns = template.get("columns")
         if not isinstance(columns, dict):
             return
@@ -296,16 +302,24 @@ class PlacementIndex:
         key_columns.sort(key=lambda name: _header_code(columns[name]))
         self.tables[stem] = Table(url, (group_column, fact_column, *key_columns))
         base = {
-            **self.module.dimensions,
-            **(template.get("dimensions") or {}),
-            **(definition.get("dimensions") or {}),
+            **_mapping(self.module.dimensions, f"{self.module.url}: dimensions"),
+            **_mapping(template.get("dimensions"), f"{where}: dimensions"),
+            **_mapping(definition.get("dimensions"), f"{where}: column {fact_column}"),
         }
         decimals = self.module.decimals
         decimals = template.get("decimals", decimals)
         decimals = definition.get("decimals", decimals)
         for datapoint, group in property_groups.items():
             if isinstance(group, dict):
-                self._add_group(stem, datapoint, group, base, decimals, key_columns)
+                self._add_group(
+                    stem,
+                    datapoint,
+                    group,
+                    base,
+                    decimals,
+                    key_columns,
+                    where=f"{where}: {datapoint}",
+                )
 
     def _term(self, dimension: str, raw: object) -> tuple[str, Any, Any]:
         """Classify one dimension of a property group, cached.
@@ -359,14 +373,21 @@ class PlacementIndex:
         base: Mapping[str, Any],
         decimals: Any,
         key_columns: list[str],
+        *,
+        where: str,
     ) -> None:
-        dimensions = {**base, **(group.get("dimensions") or {})}
+        dimensions = {**base, **_mapping(group.get("dimensions"), where)}
         decimals = group.get("decimals", decimals)
         concept: str | None = None
         unit: tuple[str, str] | None = None
         by_column: dict[str, str] = {}
         fixed: list[tuple[str, Member]] = []
         for dimension, raw in dimensions.items():
+            if raw is not None and not isinstance(raw, str | int | float):
+                raise ReportError(
+                    f"{where}: dimension {dimension} must be a string, not "
+                    f"{type(raw).__name__}"
+                )
             kind, first, second = self._term(dimension, raw)
             if kind == "member":
                 fixed.append((first, second))
@@ -389,6 +410,8 @@ class PlacementIndex:
             return
         documentation = group.get("eba:documentation")
         kind = documentation.get("type") if isinstance(documentation, dict) else None
+        if not isinstance(kind, str):
+            kind = None
         decimals_parameter = (
             decimals[1:]
             if isinstance(decimals, str) and decimals.startswith("$")
@@ -434,6 +457,22 @@ class PlacementIndex:
             )
             found.extend(self._index[variable].get((concept, fixed), ()))
         return found
+
+
+def _mapping(value: object, where: str) -> Mapping[str, Any]:
+    """Return a metadata object, ``{}`` when absent.
+
+    Returns:
+        Mapping[str, Any]: The object.
+
+    Raises:
+        ReportError: If the value is present but not a JSON object.
+    """
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ReportError(f"{where} must be a JSON object, not {type(value).__name__}")
+    return value
 
 
 def _header_code(definition: object) -> str:

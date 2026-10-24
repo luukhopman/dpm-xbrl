@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import io
 import os
+import re
 from collections import Counter
 from dataclasses import replace
 from pathlib import Path
@@ -557,3 +558,77 @@ def test_facts_for_template_matches_filing_indicators(tmp_path: Path) -> None:
 def test_damaged_zip_error_uses_the_name() -> None:
     with pytest.raises(ReportError, match=r"^upload\.zip is not a readable ZIP"):
         read_report(b"PK\x03\x04broken", name="upload.zip")
+
+
+# Malformed taxonomy input ----------------------------------------------------------
+
+_MODULE_PATH = "www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.0/mod/corep_of.json"
+_TABLE_PATH = "www.eba.europa.eu/eu/fr/xbrl/crr/fws/corep/4.0/tab/c_01.00/c_01.00.json"
+
+
+def _taxonomy_with(tmp_path: Path, path: str, change) -> Path:
+    import json
+
+    from tests.support import taxonomy_files
+
+    files: dict[str, str | bytes] = dict(taxonomy_files(full=True))
+    document = json.loads(files[path])
+    change(document)
+    files[path] = json.dumps(document)
+    return write_zip(tmp_path / "bad.zip", files, root="EBA_CRD_4.0/")
+
+
+def _group(document: dict) -> dict:
+    columns = document["tableTemplates"]["c_01.00"]["columns"]
+    return columns["datapoint"]["propertyGroups"]["dp84817"]
+
+
+@pytest.mark.parametrize(
+    ("path", "change", "message"),
+    [
+        (
+            _TABLE_PATH,
+            lambda d: _group(d)["dimensions"].update({"eba_dim:BAS": ["x"]}),
+            "dimension eba_dim:BAS must be a string, not list",
+        ),
+        (
+            _TABLE_PATH,
+            lambda d: _group(d).update(dimensions=[1, 2]),
+            "dp84817 must be a JSON object, not list",
+        ),
+        (
+            _TABLE_PATH,
+            lambda d: _group(d).update(dimensions="abc"),
+            "dp84817 must be a JSON object, not str",
+        ),
+        (
+            _TABLE_PATH,
+            lambda d: d["tableTemplates"]["c_01.00"].update(dimensions=[1]),
+            "c_01.00: dimensions must be a JSON object, not list",
+        ),
+        (
+            _MODULE_PATH,
+            lambda d: d["tables"]["c_01.00"].update(template=["c_01.00"]),
+            "the template of table c_01.00 must be a string",
+        ),
+    ],
+)
+def test_malformed_module_metadata_raises_report_error(
+    tmp_path: Path, csv_report: Report, package: Path, path: str, change, message: str
+) -> None:
+    xml = _as_xml(csv_report, package)
+    bad = _taxonomy_with(tmp_path, path, change)
+    with pytest.raises(ReportError, match=re.escape(message)):
+        write_xbrl_csv(xml, tmp_path / "out.zip", taxonomy_packages=[bad])
+
+
+def test_non_string_data_point_type_is_ignored(
+    tmp_path: Path, csv_report: Report, package: Path
+) -> None:
+    xml = _as_xml(csv_report, package)
+    bad = _taxonomy_with(
+        tmp_path,
+        _TABLE_PATH,
+        lambda d: _group(d).update({"eba:documentation": {"type": ["e"]}}),
+    )
+    assert write_xbrl_csv(xml, tmp_path / "out.zip", taxonomy_packages=[bad]) == ()
