@@ -6,6 +6,7 @@ import csv
 import io
 import json
 import math
+import os
 import posixpath
 import re
 import warnings
@@ -192,7 +193,7 @@ def write_xbrl_csv(
     target: str | Path | IO[bytes],
     *,
     root: str | None = None,
-    taxonomy_packages: Sequence[str | Path] = (),
+    taxonomy_packages: str | os.PathLike[str] | Sequence[str | os.PathLike[str]] = (),
     strict: bool = True,
     limits: Limits = Limits(),
 ) -> SkippedFacts:
@@ -219,8 +220,9 @@ def write_xbrl_csv(
         root: Top-level folder name; defaults to the target's file name
             without ``.zip``, as the EBA filing rules ask, or to
             ``default_package_root`` for a stream.
-        taxonomy_packages: Local taxonomy package ZIPs holding the module's
-            xBRL-CSV metadata, used to place facts by concept.
+        taxonomy_packages: Local taxonomy package ZIPs, one path or a
+            sequence, holding the module's xBRL-CSV metadata, used to place
+            facts by concept.
         strict: With taxonomy packages, whether a fact that cannot be placed
             exactly raises ``ReportError``; when ``False`` it is left out and
             returned.
@@ -603,7 +605,7 @@ def write_xbrl_xml(
     target: str | Path | IO[bytes],
     *,
     typed_domains: Mapping[str, str] | None = None,
-    taxonomy_packages: Sequence[str | Path] = (),
+    taxonomy_packages: str | os.PathLike[str] | Sequence[str | os.PathLike[str]] = (),
     limits: Limits = Limits(),
 ) -> None:
     """Write an XBRL 2.1 XML instance.
@@ -627,10 +629,10 @@ def write_xbrl_xml(
             (``{namespace}local``, declared under a new prefix if needed);
             required for each typed dimension used by a fact unless the
             taxonomy packages give it.
-        taxonomy_packages: Local taxonomy package ZIPs whose dimension
-            schemas give the typed domain (``xbrldt:typedDomainRef``) of each
-            typed dimension not in ``typed_domains``, declared with the prefix
-            its schema uses.
+        taxonomy_packages: Local taxonomy package ZIPs, one path or a
+            sequence, whose dimension schemas give the typed domain
+            (``xbrldt:typedDomainRef``) of each typed dimension not in
+            ``typed_domains``, declared with the prefix its schema uses.
         limits: Resource limits for reading the taxonomy packages.
 
     Raises:

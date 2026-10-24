@@ -73,7 +73,7 @@ def read_report(
     *,
     name: str | None = None,
     metadata_resolver: MetadataResolver | None = None,
-    taxonomy_packages: Sequence[str | Path] = (),
+    taxonomy_packages: str | os.PathLike[str] | Sequence[str | os.PathLike[str]] = (),
     limits: Limits = Limits(),
 ) -> Report:
     """Read a report, detecting xBRL-CSV or XBRL-XML from the input.
@@ -87,8 +87,9 @@ def read_report(
         name: Label used in messages and fact locations, such as the file
             name of uploaded bytes; the EBA file-naming rule checks it.
         metadata_resolver: xBRL-CSV ``extends`` URL resolver; unused for XML.
-        taxonomy_packages: Local taxonomy package ZIPs: they resolve xBRL-CSV
-            metadata and add the filing rules that need the taxonomy.
+        taxonomy_packages: Local taxonomy package ZIPs, one path or a
+            sequence: they resolve xBRL-CSV metadata and add the filing
+            rules that need the taxonomy.
         limits: Resource limits for untrusted input.
 
     Returns:

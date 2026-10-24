@@ -121,7 +121,7 @@ def read_xbrl_xml(
     source: str | os.PathLike[str] | bytes,
     *,
     name: str | None = None,
-    taxonomy_packages: Sequence[str | Path] = (),
+    taxonomy_packages: str | os.PathLike[str] | Sequence[str | os.PathLike[str]] = (),
     limits: Limits = Limits(),
 ) -> Report:
     """Read one XBRL 2.1 XML instance.
@@ -129,8 +129,9 @@ def read_xbrl_xml(
     Args:
         source: Instance bytes or a path to the instance document.
         name: Label used in messages and fact locations.
-        taxonomy_packages: Local taxonomy package ZIPs; with them the filing
-            rules that need the taxonomy are checked too.
+        taxonomy_packages: Local taxonomy package ZIPs, one path or a
+            sequence; with them the filing rules that need the taxonomy are
+            checked too.
         limits: Resource limits for untrusted input.
 
     Returns:

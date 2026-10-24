@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import os
 import posixpath
 import re
 from collections.abc import Sequence
@@ -50,8 +51,15 @@ class TaxonomyPackages:
     matching start string across all packages wins.
     """
 
-    def __init__(self, paths: Sequence[str | Path], *, limits: Limits) -> None:
+    def __init__(
+        self,
+        paths: str | os.PathLike[str] | Sequence[str | os.PathLike[str]],
+        *,
+        limits: Limits,
+    ) -> None:
         """Open every package and read its catalog.
+
+        ``paths`` is one package path or a sequence of them.
 
         Raises:
             ReportError: If a package is not a readable ZIP or has no catalog.
@@ -65,7 +73,7 @@ class TaxonomyPackages:
         self._schema_files: dict[str, list[tuple[int, str]]] | None = None
         self._schemas: dict[tuple[int, str], Schema | None] = {}
         try:
-            for path in paths:
+            for path in [paths] if isinstance(paths, str | os.PathLike) else paths:
                 self._add(Path(path).expanduser())
         except BaseException:
             self.close()

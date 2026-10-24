@@ -39,7 +39,6 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ._taxonomy import TaxonomyPackages
@@ -102,7 +101,7 @@ def read_xbrl_csv_frames(
     *,
     name: str | None = None,
     metadata_resolver: MetadataResolver | None = None,
-    taxonomy_packages: Sequence[str | Path] = (),
+    taxonomy_packages: str | os.PathLike[str] | Sequence[str | os.PathLike[str]] = (),
     limits: Limits = Limits(),
     on_metadata: Callable[[Report], None] | None = None,
     on_table: Callable[[str, pl.DataFrame, tuple[int, ...]], None] | None = None,
@@ -113,7 +112,8 @@ def read_xbrl_csv_frames(
         source: Package bytes, path, or directory.
         name: Label used in messages.
         metadata_resolver: Returns the bytes for an absolute ``extends`` URL.
-        taxonomy_packages: Taxonomy packages for offline metadata.
+        taxonomy_packages: Taxonomy packages for offline metadata, one path
+            or a sequence.
         limits: Resource limits for untrusted input.
         on_metadata: Called with the report (entry point, reference date,
             parameters and filing indicators, no facts) before the tables

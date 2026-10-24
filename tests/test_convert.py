@@ -785,3 +785,17 @@ def test_xml_declares_exactly_the_prefixes_it_uses(csv_report: Report) -> None:
     assert "xmlns:xbrldi" not in root
     assert "xmlns:find" not in root
     assert read_report(buffer.getvalue()).facts[0].value == "eba_RP:x105"
+
+
+def test_one_taxonomy_package_may_be_a_str_or_path(
+    tmp_path: Path, package: Path
+) -> None:
+    path = write_zip(tmp_path / "r.zip", metadata_files())
+    as_list = read_report(path, taxonomy_packages=[package])
+    for single in (package, str(package)):
+        report = read_report(path, taxonomy_packages=single)
+        assert report.facts == as_list.facts
+        buffer = io.BytesIO()
+        write_xbrl_xml(report, buffer, taxonomy_packages=single)
+        xml = read_report(buffer.getvalue(), taxonomy_packages=single)
+        assert write_xbrl_csv(xml, tmp_path / "out.zip", taxonomy_packages=single) == ()

@@ -124,7 +124,7 @@ def read_xbrl_csv(
     *,
     name: str | None = None,
     metadata_resolver: MetadataResolver | None = None,
-    taxonomy_packages: Sequence[str | Path] = (),
+    taxonomy_packages: str | os.PathLike[str] | Sequence[str | os.PathLike[str]] = (),
     limits: Limits = Limits(),
 ) -> Report:
     """Read an xBRL-CSV report package from a ZIP or a directory.
@@ -134,8 +134,9 @@ def read_xbrl_csv(
         name: Label used in messages instead of the source path.
         metadata_resolver: Returns the bytes for an absolute ``extends`` URL,
             or ``None`` when unknown. It is consulted before taxonomy packages.
-        taxonomy_packages: Local taxonomy package ZIPs whose
-            ``META-INF/catalog.xml`` rewrites resolve ``extends`` URLs.
+        taxonomy_packages: Local taxonomy package ZIPs, one path or a
+            sequence, whose ``META-INF/catalog.xml`` rewrites resolve
+            ``extends`` URLs.
         limits: Resource limits for untrusted input.
 
     Returns:
