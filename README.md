@@ -303,7 +303,7 @@ and `dpmxbrl.frames`, the fields of `Report`, `Fact`, `FilingFinding` and
 `Limits`, the CLI and the `ReportError` contract. Modules whose names start
 with an underscore are internal. Warning texts and filing-finding messages may
 be reworded in minor releases; rule numbers and codes may not. See
-[CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+[CHANGELOG.md](https://github.com/luukhopman/dpm-xbrl/blob/main/CHANGELOG.md) for what changed in each release.
 
 ## Development
 
