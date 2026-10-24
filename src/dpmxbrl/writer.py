@@ -239,7 +239,8 @@ def _json_bytes(value: object) -> bytes:
 
 # XBRL-XML ----------------------------------------------------------------------
 
-_NCNAME = re.compile(r"[A-Za-z_][\w.\-]*")
+# XML names: a letter or underscore, then letters, digits, "_", "." or "-".
+_NCNAME = re.compile(r"[^\W\d][\w.\-\u00b7\u0300-\u036f\u203f-\u2040]*")
 _XML_ILLEGAL = re.compile(r"[^\t\n\r\x20-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]")
 
 
@@ -281,10 +282,12 @@ class _Namespaces:
 
     def check(self, qname: str, where: str) -> str:
         prefix, separator, local = qname.partition(":")
-        if not separator or prefix not in self.declared or not _NCNAME.fullmatch(local):
+        if not separator or prefix not in self.declared:
             raise ReportError(
                 f"{where}: {qname!r} is not a qname with a declared prefix"
             )
+        if not _NCNAME.fullmatch(local):
+            raise ReportError(f"{where}: {qname!r} has an invalid local name")
         return qname
 
 
@@ -309,7 +312,9 @@ def write_xbrl_xml(
 
     Raises:
         ReportError: If a fact lacks a concept, the entity or reference date
-            is missing, a prefix is undeclared, or a typed domain is unknown.
+            is missing, a prefix is undeclared or invalid, a qname has an
+            invalid local name, a typed domain is unknown, or a value holds
+            a character XML cannot represent.
     """
     if not report.entity_id or not report.entity_scheme:
         raise ReportError("XBRL-XML output requires an entity scheme and identifier")

@@ -196,8 +196,17 @@ def test_xml_writer_errors() -> None:
     with pytest.raises(ReportError, match="'zz:x' is not a qname with a declared"):
         write_xbrl_xml(undeclared, io.BytesIO())
     bad_local = replace(report, facts=(Fact("1", concept="eba_met:a b"),))
-    with pytest.raises(ReportError, match="is not a qname with a declared"):
+    with pytest.raises(ReportError, match="'eba_met:a b' has an invalid local name"):
         write_xbrl_xml(bad_local, io.BytesIO())
+    bad_prefix = replace(report, namespaces={**report.namespaces, "1x": "urn:x"})
+    with pytest.raises(ReportError, match="'1x' is not a valid namespace prefix"):
+        write_xbrl_xml(bad_prefix, io.BytesIO())
+    accented = replace(
+        report,
+        namespaces={**report.namespaces, "é": "urn:é"},
+        facts=(Fact("1", concept="é:éi1"),),
+    )
+    write_xbrl_xml(accented, io.BytesIO())
     control = replace(
         report, facts=(Fact("a\x01b", concept="eba_met:ei1", location="f9"),)
     )
